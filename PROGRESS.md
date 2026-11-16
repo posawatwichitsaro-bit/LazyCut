@@ -39,15 +39,16 @@ Phase 2: Local Web Dashboard & UI Integration (100% Completed)
   ├── Settings View (Watch Path, Presets, Guard, GPU) ───── [x] Completed
   └── Hybrid AI Router (Ollama + Zero-AI Fallback) (P2-05) ─ [x] Completed (P2-05 TDD passed)
 
-Phase 3: Community Presets & Auto-Publish (In Progress)
-  ├── JSON Preset Builder & Schema Validator ────────────── [/] In Progress
-  ├── Discord / Telegram Webhook Notifications ──────────── [ ] Pending
-  └── YouTube Data API v3 OAuth2 Integration ────────────── [ ] Pending
+Phase 3: Community Presets & Auto-Publish (80% Completed)
+  ├── JSON Preset Builder & Schema Validator (P3-01) ────── [x] Completed (P3-01 TDD passed)
+  ├── Discord / Telegram Webhook Notifications (P3-02) ──── [x] Completed (P3-02 TDD passed)
+  └── YouTube Data API v3 OAuth2 Integration ────────────── [/] Export Ready / BYOC Stub
 
-Phase 4: Open-Source Release & Packaging
-  ├── Comprehensive Documentation (README.md & Docs) ────── [ ] Pending
-  ├── One-Click Portable Installer / Docker Compose ─────── [ ] Pending
-  └── Community Contribution Guidelines (MIT License) ──── [ ] Pending
+Phase 4: Open-Source Release & Packaging (In Progress)
+  ├── Comprehensive Documentation (README.md, Blueprints) ── [x] Completed
+  ├── Windows One-Click start.bat Bootstrap ─────────────── [x] Completed & Verified
+  ├── Automated Test Suite CI Coverage (30/30 Tests) ────── [x] Completed (100% Pass)
+  └── Community Contribution Guidelines (MIT License) ──── [x] Completed
 ```
 
 ---
@@ -72,6 +73,8 @@ Phase 4: Open-Source Release & Packaging
 | **P2-03** | **Montage Job API** | `POST /api/jobs` and `GET /api/jobs/{id}/export` lifecycle validation (TDD passed) | `DONE` |
 | **P2-04** | **3-Screen Dashboard** | Modern responsive SPA (Studio Feed, Reel Inspector with Video Player, Settings) (TDD passed) | `DONE` |
 | **P2-05** | **Hybrid AI Router** | `AIRouter` with Ollama integration and Zero-AI resilient fallback (TDD passed) | `DONE` |
+| **P3-01** | **Preset Validator** | Declarative JSON schema validator and safe loader for community presets (TDD passed) | `DONE` |
+| **P3-02** | **Webhook Notifier** | Discord Embed and Telegram publish alerts with duration and chapters (TDD passed) | `DONE` |
 
 ---
 
