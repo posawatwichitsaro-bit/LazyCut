@@ -57,7 +57,9 @@ Phase 5: AI Highlight Curation & Montage Studio (100% Completed)
   ├── Multi-Signal Kill & Headshot Detector 2.0 (P5-02) ─── [x] Completed (TDD passed)
   ├── AI Highlight Scorer (Headshots, Chains, Flicks) (P5-03) [x] Completed (TDD passed)
   ├── Precision Action Trimming (Cut Spawn Walking) (P5-04) ─ [x] Completed (TDD passed)
-  └── Multi-Clip 16:9 Cinema & 9:16 Montage Assembler (P5-05) [x] Completed (TDD passed)
+  ├── Multi-Clip 16:9 Cinema & 9:16 Montage Assembler (P5-05) [x] Completed (TDD passed)
+  ├── Chronological Match Sequencing (P5-06) ───────────── [x] Completed (TDD passed)
+  └── Hybrid AI Montage Director (Ollama 9B/36B) (P5-07) ── [x] Completed (TDD passed)
 ```
 
 ---
@@ -119,3 +121,11 @@ Phase 5: AI Highlight Curation & Montage Studio (100% Completed)
   - 35/35 automated unit & integration tests passing with 100% success rate.
   - Completed end-to-end browser user workflow testing on `http://localhost:8000/` with live clip library at `D:\Clips\Valorant`: Settings watch path configuration, clip feed selection, 9:16 vertical reel rendering (`reel_20261116_145014_bc94cc70.mp4`), and Reel Inspector verification with in-browser video playback and YouTube chapters copy.
   - Authored physical video cut and composition unit tests (`tests/test_compositor_video_cut.py`) verifying real FFmpeg rendering, actual duration trimming (6.0s down to <=2.5s), 16:9 to 9:16 aspect ratio transformation, layer pixel decoding, and budget enforcement. Test suite expanded to 37/37 passing (100%).
+  - Pivoted architecture to **Hybrid 2-Stage Highlight & Montage Studio** per user directive:
+    - **Hardware**: Unlocked RTX 5070 NVENC hardware encoding (`h264_nvenc`) by fixing probe dimensions to 256x256.
+    - **Stage 1 (Fast Multi-Modal Filtering)**: Built `HighlightCurator` combining 16kHz audio energy peaks with killfeed player bars & banner edge density, discarding idle spawn walking.
+    - **Chronological Sequencing**: Extracted Outplayed & Project timestamps from filenames to assemble gameplay strictly in match progression order (`before -> after`).
+    - **Stage 2 (AI Secondary Pacing Optimization)**: Implemented `AIMontageDirector` integrating local Ollama (`qwen3.5-9B`, `qwen3.6`, `gemma4`) with warm 1.07s inference time and deterministic heuristic fallback for in/out pacing, climax emphasis, and chapter titles.
+    - **Aspect Ratios**: Supported full 16:9 Cinema widescreen montage without cropping alongside 9:16 Shorts.
+    - **Library Scan**: Added automatic startup and on-demand rescan discovering all 87 clips in `D:\Clips\Valorant`.
+    - **Test Coverage**: 44/44 unit & integration tests passing (100%).

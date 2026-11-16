@@ -72,3 +72,11 @@ _Avoid_: Simple Cut, Subclip
 A full-screen horizontal highlight montage that preserves original native resolution and wide FOV without cropping.
 _Avoid_: Fullscreen Dump, Wide Cut
 
+**Chronological Timeline Sequencing**:
+The deterministic ordering of candidate gameplay cuts according to their original match occurrence timestamps (`before -> after`), parsed from Outplayed / Project recording filenames or filesystem metadata.
+_Avoid_: Random Shuffle, Duration Sort
+
+**AI Montage Director**:
+The hybrid 2nd-stage decision engine that analyzes chronological gameplay cuts and fine-tunes in/out points, pacing momentum towards the climax, transition styles, and chapter markers using local LLMs (Ollama) or deterministic heuristic pacing fallbacks.
+_Avoid_: Dumb Trimmer, Auto Slicer
+

@@ -13,10 +13,11 @@ The initial prototype relied on static color thresholds and center cropping with
 4. The compositor must support both 16:9 full-screen cinema montages and 9:16 vertical shorts.
 
 ## Decision
-1. **Multi-Signal Combat Detector**: Enhance `ValorantKillDetector` to analyze killfeed player bars (green/gold highlights), headshot icons, and audio frequency peaks corresponding to in-game kill chimes.
-2. **Shot Quality Scorer**: Introduce `HighlightScorer` that evaluates moments based on kill count, headshot flag, and kill-chain proximity.
-3. **Precision Action Window Trimming**: Modify `MontageCompositor` to pass `-ss <start> -to <end>` or FFmpeg `trim` filters per clip so only the actual combat action is assembled into the final reel.
-4. **Multi-Format Montage Support**: Provide first-class 16:9 widescreen montage mode (no cropping, full cinematic display) alongside 9:16 vertical short mode.
+1. **Multi-Signal Combat Detector (Stage 1 Heuristic Filtering)**: Analyze killfeed player bars (green/gold highlights), weapon banner edge density, and 16kHz audio RMS energy peaks to rapidly detect candidate action windows across raw clips, completely discarding idle spawn walking.
+2. **Chronological Timeline Sequencing**: Parse Outplayed and Project datetime patterns from filenames to arrange candidate highlights in exact chronological order (`before -> after`) to reflect the real progression of the match.
+3. **AI Montage Director (Stage 2 AI Secondary Optimization)**: Use `AIMontageDirector` to query local Ollama (`qwen3.5-9B`, `qwen3.6`, `gemma4`) or deterministic pacing heuristics to fine-tune in/out cut points, assign transitions (cut vs crossfade), give weight to the final climax multi-kill, and generate narrative chapter titles.
+4. **Precision Action Window Trimming**: Pass `-ss <start> -to <end>` per clip to FFmpeg so only the actual combat action is assembled into the final reel.
+5. **Multi-Format Montage Support**: Provide first-class 16:9 widescreen montage mode (no cropping, full 1080p cinematic display) alongside 9:16 vertical short mode, hardware accelerated via RTX 5070 NVENC (`h264_nvenc`).
 
 ## Consequences
 - Clips without verified kills or combat action are excluded from montages by default.

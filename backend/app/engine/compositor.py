@@ -11,6 +11,7 @@ from backend.app.core.hardware_probe import get_ffmpeg_binary, get_best_hardware
 from backend.app.core.safety import check_disk_safety
 from backend.app.engine.filter_graph import build_9_16_filter_graph, build_16_9_cinema_filter_graph
 from backend.app.detection.highlight_curator import HighlightCurator
+from backend.app.engine.ai_montage_director import AIMontageDirector, CandidateCut, OptimizedCut
 from backend.app.models.entities import MontageJob, ReelExport, SourceClip
 
 class MontageCompositor:
@@ -58,53 +59,67 @@ class MontageCompositor:
             fadeout_style = vibe_cfg.get("fadeout_style", "exp")
             fadeout_duration = vibe_cfg.get("fadeout_duration_seconds", 2.0)
 
-            # 2. Curate clips & calculate precision Action Windows
+            # 2. Stage 1: Curate combat candidate highlights
             curator = HighlightCurator()
-            curated_items: list[tuple[SourceClip, tuple[float, float], float]] = []
+            candidate_cuts: list[CandidateCut] = []
+            clip_map: dict[str, SourceClip] = {}
 
             for c in clips:
+                clip_map[c.id] = c
                 c_path = Path(c.file_path)
                 if c_path.exists():
                     res = curator.curate_clip(c_path)
                     if res.has_highlights and res.action_windows:
                         top_window = res.action_windows[0]
-                        w_dur = top_window[1] - top_window[0]
                         c.kill_count = max(c.kill_count, len(res.moments))
                         c.is_verified = True
-                        curated_items.append((c, top_window, w_dur))
+                        candidate_cuts.append(CandidateCut(
+                            clip_id=c.id,
+                            file_name=c.file_name,
+                            raw_start=top_window[0],
+                            raw_end=top_window[1],
+                            kills=c.kill_count,
+                            is_headshot=any(m.is_headshot for m in res.moments),
+                            energy=max((m.audio_energy for m in res.moments), default=5000.0)
+                        ))
                     else:
                         safe_dur = min(c.duration if c.duration > 0 else 10.0, float(job.target_duration))
-                        curated_items.append((c, (0.0, safe_dur), safe_dur))
+                        candidate_cuts.append(CandidateCut(
+                            clip_id=c.id,
+                            file_name=c.file_name,
+                            raw_start=0.0,
+                            raw_end=safe_dur,
+                            kills=c.kill_count
+                        ))
                 else:
                     safe_dur = min(c.duration if c.duration > 0 else 10.0, float(job.target_duration))
-                    curated_items.append((c, (0.0, safe_dur), safe_dur))
+                    candidate_cuts.append(CandidateCut(
+                        clip_id=c.id,
+                        file_name=c.file_name,
+                        raw_start=0.0,
+                        raw_end=safe_dur,
+                        kills=c.kill_count
+                    ))
 
-            # Pack clips within Duration Budget (capped at max 15 minutes)
+            # 3. Stage 2: AI Secondary Optimization & Chronological Sequencing
             budget_limit = min(float(job.target_duration), float(settings.max_montage_duration_seconds))
-            packed_items: list[tuple[SourceClip, tuple[float, float], float]] = []
-            accumulated_duration = 0.0
+            director = AIMontageDirector()
+            optimized_edl: list[OptimizedCut] = director.optimize_edl(candidate_cuts, target_budget=budget_limit)
 
-            # Sort by kill count (highest first)
-            sorted_items = sorted(curated_items, key=lambda x: x[0].kill_count, reverse=True)
-            for item in sorted_items:
-                c, (w_start, w_end), w_dur = item
-                if accumulated_duration + w_dur <= budget_limit or not packed_items:
-                    packed_items.append(item)
-                    accumulated_duration += w_dur
-                if accumulated_duration >= budget_limit:
-                    break
+            if not optimized_edl:
+                raise ValueError("No valid cuts could be assembled.")
 
-            accumulated_duration = min(accumulated_duration, budget_limit)
-            packed_clips = [item[0] for item in packed_items]
+            accumulated_duration = sum(cut.duration for cut in optimized_edl)
+            packed_clips = [clip_map[cut.clip_id] for cut in optimized_edl if cut.clip_id in clip_map]
 
-            # 3. Disk Safety Guard verification
+            # 4. Disk Safety Guard verification
             est_output_bytes = int(accumulated_duration * 2.5 * 1024 * 1024)  # ~20 Mbps bitrate
             check_disk_safety(settings.exports_dir, est_output_bytes)
 
             job.progress = 0.20
             self.session.commit()
 
-            # 4. Prepare FFmpeg inputs with precision Action Windows
+            # 5. Prepare FFmpeg inputs in exact chronological timeline order
             timestamp_str = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
             output_filename = f"reel_{timestamp_str}_{job.id[:8]}.mp4"
             output_path = settings.exports_dir / output_filename
@@ -113,16 +128,16 @@ class MontageCompositor:
             chapters_lines: list[str] = [f"# LazyCut Reel - {timestamp_str}\n"]
             current_time = 0.0
 
-            for idx, (c, (w_start, w_end), w_dur) in enumerate(packed_items):
-                # Precision action slicing: cut only the combat action window!
-                input_args.extend(["-ss", f"{w_start:.2f}", "-to", f"{w_end:.2f}", "-i", c.file_path])
+            for idx, cut in enumerate(optimized_edl):
+                c = clip_map[cut.clip_id]
+                # Precision action slicing with AI-optimized In/Out points
+                input_args.extend(["-ss", f"{cut.start:.2f}", "-to", f"{cut.end:.2f}", "-i", c.file_path])
                 
                 # Format timestamp MM:SS
                 minutes = int(current_time // 60)
                 seconds = int(current_time % 60)
-                kills_str = f"({c.kill_count} Kills)" if c.kill_count > 0 else "(Highlight)"
-                chapters_lines.append(f"{minutes:02d}:{seconds:02d} - Clip {idx + 1} {kills_str}")
-                current_time += w_dur
+                chapters_lines.append(f"{minutes:02d}:{seconds:02d} - {cut.title or f'Clip {idx + 1}'}")
+                current_time += cut.duration
 
             # Resolve BGM if requested
             bgm_present = False
@@ -138,10 +153,10 @@ class MontageCompositor:
             job.progress = 0.35
             self.session.commit()
 
-            # 5. Build Filter Graph (16:9 Cinema or 9:16 Vertical)
+            # 6. Build Filter Graph (16:9 Cinema or 9:16 Vertical)
             if output_format == "16:9":
                 filter_script, final_v, final_a = build_16_9_cinema_filter_graph(
-                    clip_count=len(packed_items),
+                    clip_count=len(optimized_edl),
                     bgm_present=bgm_present,
                     ducking_db=ducking_db,
                     fadeout_style=fadeout_style,
@@ -150,7 +165,7 @@ class MontageCompositor:
                 )
             else:
                 filter_script, final_v, final_a = build_9_16_filter_graph(
-                    clip_count=len(packed_items),
+                    clip_count=len(optimized_edl),
                     bgm_present=bgm_present,
                     ducking_db=ducking_db,
                     fadeout_style=fadeout_style,
