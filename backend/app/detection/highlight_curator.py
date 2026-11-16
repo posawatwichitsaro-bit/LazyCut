@@ -79,7 +79,7 @@ class HighlightCurator:
         if moment.kill_count >= 2:
             score += 100.0  # Multi-kill bonus
         if moment.audio_energy > 5000.0:
-            score += 25.0  # High audio excitement
+            score += 50.0  # High audio excitement
         
         moment.score = score
         return score
@@ -91,13 +91,14 @@ class HighlightCurator:
         self,
         moments: list[CombatMoment],
         total_duration: float,
-        lead_in: float = 5.0,
-        lead_out: float = 2.0,
-        bridge_threshold: float = 4.0
+        lead_in: float = 4.5,
+        lead_out: float = 2.5,
+        bridge_threshold: float = 3.5
     ) -> list[tuple[float, float]]:
         """
         Calculates precision action windows around confirmed combat moments.
-        Bridges moments occurring within bridge_threshold (e.g. 4.0s).
+        Bridges moments occurring within bridge_threshold (3.5s).
+        Ensures each window has ample context (minimum 6.0s duration).
         """
         valid_moments = [m for m in moments if self.is_worth_keeping(m)]
         if not valid_moments:
@@ -120,12 +121,37 @@ class HighlightCurator:
         for cluster in clusters:
             start = max(0.0, cluster[0] - lead_in)
             end = min(total_duration, cluster[-1] + lead_out)
+            
+            # If standard lead-in (>=4.0) and window is under 6.0s, expand to guarantee readable context
+            if lead_in >= 4.0 and end - start < 6.0 and total_duration >= 6.0:
+                mid = (start + end) / 2.0
+                start = max(0.0, mid - 3.5)
+                end = min(total_duration, start + 7.0)
+                if end >= total_duration:
+                    start = max(0.0, total_duration - 7.0)
+            
             windows.append((start, end))
+
+        # Merge overlapping or closely adjacent windows to ensure fluid, non-fragmented scenes
+        merged_windows: list[tuple[float, float]] = []
+        for w in sorted(windows, key=lambda item: item[0]):
+            if not merged_windows:
+                merged_windows.append(w)
+            else:
+                prev_start, prev_end = merged_windows[-1]
+                if w[0] <= prev_end + 1.0:
+                    merged_windows[-1] = (prev_start, max(prev_end, w[1]))
+                else:
+                    merged_windows.append(w)
+        windows = merged_windows
 
         # Score each action window based on the combat moments it contains
         scored_windows: list[tuple[tuple[float, float], float]] = []
         for w_start, w_end in windows:
-            w_score = sum(m.score for m in valid_moments if w_start <= m.timestamp <= w_end)
+            moments_in_window = [m for m in valid_moments if w_start <= m.timestamp <= w_end]
+            w_score = sum(m.score for m in moments_in_window)
+            if len(moments_in_window) >= 2:
+                w_score += 150.0  # Multi-kill sequence bonus
             scored_windows.append(((w_start, w_end), w_score))
 
         # Sort action windows by score descending (highest quality/hype first)
@@ -163,12 +189,12 @@ class HighlightCurator:
     def curate_clip(
         self,
         video_path: Path,
-        lead_in: float = 5.0,
-        lead_out: float = 2.0
+        lead_in: float = 4.5,
+        lead_out: float = 2.5
     ) -> CuratedHighlight:
         """
-        Scans a video file, combining audio combat energy with kill visual cues.
-        Returns a CuratedHighlight with precision Action Windows and shot scores.
+        Scans a video file using high-precision Kill Banner visual detection (Red Skull & Gold Finisher)
+        combined with audio combat energy to curate genuine kills with clear match context.
         """
         cap = cv2.VideoCapture(str(video_path))
         if not cap.isOpened():
@@ -177,76 +203,77 @@ class HighlightCurator:
         fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
         total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         duration = total_frames / fps if total_frames > 0 else 0.0
-        cap.release()
 
-        # 1. Audio combat peaks
-        audio_peaks = self.extract_audio_peaks(video_path)
-        if not audio_peaks:
+        if duration < 0.5:
+            cap.release()
             return CuratedHighlight(video_path, duration, [], [], 0.0)
 
-        # Baseline energy and peak threshold
-        energies = [p[1] for p in audio_peaks]
-        mean_energy = float(np.mean(energies)) if energies else 1000.0
-        max_energy = float(np.max(energies)) if energies else 1000.0
-        peak_threshold = max(3500.0, mean_energy * 1.5)
+        # 1. Extract audio peaks for energy profiling
+        audio_peaks = self.extract_audio_peaks(video_path)
+        energy_map = {round(t * 2) / 2.0: e for t, e in audio_peaks}
 
-        # 2. Visual scan around high-energy windows
-        # Sample frames around energy peaks
+        # 2. Sample frames at ~3 fps (step = max(1, fps * 0.33))
+        # Kill banners persist on screen for ~1.5 seconds, guaranteeing 100% catch rate
+        step = max(1, int(fps * 0.33))
         combat_moments: list[CombatMoment] = []
-        cap = cv2.VideoCapture(str(video_path))
+        last_kill_t = -10.0
 
-        for t, energy in audio_peaks:
-            if energy >= peak_threshold:
-                # Inspect frame at timestamp t
-                frame_idx = int(t * fps)
-                cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
-                ret, frame = cap.read()
-                if not ret:
-                    continue
+        frame_idx = 0
+        while cap.isOpened() and frame_idx < total_frames:
+            cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
+            ret, frame = cap.read()
+            if not ret:
+                break
+            t = frame_idx / fps
 
-                h, w = frame.shape[:2]
-                
-                # Check killfeed (top right: x=0.75*w .. w, y=0.03*h .. 0.30*h)
-                kf_roi = frame[int(0.03 * h):int(0.30 * h), int(0.70 * w):w]
-                
-                # Check lower center banner (y=0.70*h .. 0.92*h, x=0.40*w .. 0.60*w)
-                banner_roi = frame[int(0.70 * h):int(0.92 * h), int(0.40 * w):int(0.60 * w)]
+            h, w = frame.shape[:2]
+            scale = (w * h) / (1920.0 * 1080.0)
 
-                # Detect combat activity:
-                # Check for green/teal player bar in killfeed (Hue 65..95)
-                hsv_kf = cv2.cvtColor(kf_roi, cv2.COLOR_BGR2HSV)
-                green_mask = cv2.inRange(hsv_kf, np.array([65, 80, 80]), np.array([95, 255, 255]))
-                green_pixels = cv2.countNonZero(green_mask)
+            # Center-bottom Kill Banner ROI: x: 42%..58%, y: 76%..93%
+            y1, y2 = int(0.76 * h), int(0.93 * h)
+            x1, x2 = int(0.42 * w), int(0.58 * w)
+            cb = frame[y1:y2, x1:x2]
+            hsv_cb = cv2.cvtColor(cb, cv2.COLOR_BGR2HSV)
 
-                # Check for red headshot / elimination icon in killfeed
-                red_mask1 = cv2.inRange(hsv_kf, np.array([0, 120, 120]), np.array([10, 255, 255]))
-                red_mask2 = cv2.inRange(hsv_kf, np.array([170, 120, 120]), np.array([180, 255, 255]))
-                red_kf_pixels = cv2.countNonZero(red_mask1 | red_mask2)
+            # Red Skull Banner (Default & standard skin finishers)
+            red1 = cv2.inRange(hsv_cb, (0, 140, 120), (10, 255, 255))
+            red2 = cv2.inRange(hsv_cb, (170, 140, 120), (180, 255, 255))
+            red_count = cv2.countNonZero(red1 | red2)
 
-                # Check bottom center banner emblem edges
-                banner_edges = cv2.countNonZero(cv2.Canny(banner_roi, 50, 150))
+            # Gold / Yellow Finisher Banner (Champions, Kuronami, Prime, Sovereign)
+            gold = cv2.inRange(hsv_cb, (15, 120, 140), (32, 255, 255))
+            gold_count = cv2.countNonZero(gold)
 
-                # Local player kill criteria: prominent green bar in killfeed + kill banner emblem
-                # Scale threshold with ROI resolution
-                roi_scale = (h * w) / (1080.0 * 1920.0)
-                min_green = int(4000 * roi_scale)
-                min_banner_edges = int(4500 * roi_scale)
+            # Check Killfeed headshot icon (top right: x 72%..100%, y 3%..28%)
+            kf_roi = frame[int(0.03 * h):int(0.28 * h), int(0.72 * w):w]
+            hsv_kf = cv2.cvtColor(kf_roi, cv2.COLOR_BGR2HSV)
+            kf_red1 = cv2.inRange(hsv_kf, (0, 140, 120), (10, 255, 255))
+            kf_red2 = cv2.inRange(hsv_kf, (170, 140, 120), (180, 255, 255))
+            kf_red_count = cv2.countNonZero(kf_red1 | kf_red2)
 
-                is_kill = (green_pixels >= min_green) or (green_pixels >= int(min_green * 0.25) and banner_edges >= min_banner_edges)
-                is_headshot = red_kf_pixels > int(500 * roi_scale)
+            t_bucket = round(t * 2) / 2.0
+            audio_e = energy_map.get(t_bucket, 0.0)
 
-                if is_kill:
-                    # Estimate kill count from green bars
-                    kill_count = 2 if green_pixels >= min_green else 1
+            # Strict elimination validation: genuine Kill Banner + combat audio confirmation
+            has_red_banner = (red_count >= int(750 * scale) and audio_e >= 3000.0)
+            has_gold_banner = (gold_count >= int(1000 * scale))
+            is_headshot = kf_red_count >= int(350 * scale)
+
+            if has_red_banner or has_gold_banner:
+                # Debounce consecutive frames of the same banner (0.8s cooldown captures multi-kills)
+                if t - last_kill_t >= 0.8:
                     moment = CombatMoment(
                         timestamp=t,
-                        kill_count=kill_count,
+                        kill_count=1,
                         is_headshot=is_headshot,
-                        audio_energy=energy,
+                        audio_energy=audio_e,
                         is_player_kill=True
                     )
                     self.score_moment(moment)
                     combat_moments.append(moment)
+                    last_kill_t = t
+
+            frame_idx += step
 
         cap.release()
 

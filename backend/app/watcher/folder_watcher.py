@@ -82,8 +82,12 @@ class ClipFileHandler(FileSystemEventHandler):
 
     def _scan_and_save_clip(self, file_path: Path):
         try:
-            result = self.detector.analyze_clip(file_path)
+            from backend.app.detection.highlight_curator import HighlightCurator
+            curator = HighlightCurator()
+            result = curator.curate_clip(file_path)
             size = file_path.stat().st_size if file_path.exists() else 0
+            kill_count = len(result.moments)
+            is_verified = result.has_highlights and kill_count > 0
 
             with Session(engine) as session:
                 statement = select(SourceClip).where(SourceClip.file_path == str(file_path))
@@ -94,27 +98,27 @@ class ClipFileHandler(FileSystemEventHandler):
                         file_name=file_path.name,
                         file_size=size,
                         duration=result.duration,
-                        kill_count=result.kill_count,
-                        is_verified=result.is_verified,
+                        kill_count=kill_count,
+                        is_verified=is_verified,
                         scanned_at=time.time()
                     )
                     session.add(clip)
                 else:
                     clip.duration = result.duration
-                    clip.kill_count = result.kill_count
-                    clip.is_verified = result.is_verified
+                    clip.kill_count = kill_count
+                    clip.is_verified = is_verified
                     clip.file_size = size
 
                 session.commit()
                 session.refresh(clip)
 
                 # Clear old events and persist fresh kills
-                for t in result.kill_timestamps:
+                for m in result.moments:
                     ke = KillEvent(
                         clip_id=clip.id,
-                        timestamp_sec=t,
-                        confidence=0.9,
-                        event_type="skull_banner"
+                        timestamp_sec=m.timestamp,
+                        confidence=0.95,
+                        event_type="headshot" if m.is_headshot else "skull_banner"
                     )
                     session.add(ke)
                 session.commit()

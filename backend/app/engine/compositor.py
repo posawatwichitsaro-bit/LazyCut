@@ -130,8 +130,14 @@ class MontageCompositor:
 
             for idx, cut in enumerate(optimized_edl):
                 c = clip_map[cut.clip_id]
-                # Precision action slicing with AI-optimized In/Out points
-                input_args.extend(["-ss", f"{cut.start:.2f}", "-to", f"{cut.end:.2f}", "-i", c.file_path])
+                # Precision action slicing with sample-exact seeking and negative timestamp avoidance
+                input_args.extend([
+                    "-ss", f"{cut.start:.2f}",
+                    "-to", f"{cut.end:.2f}",
+                    "-accurate_seek",
+                    "-avoid_negative_ts", "make_zero",
+                    "-i", c.file_path
+                ])
                 
                 # Format timestamp MM:SS
                 minutes = int(current_time // 60)

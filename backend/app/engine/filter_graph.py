@@ -29,9 +29,12 @@ def build_9_16_filter_graph(
 
     # Process each clip into 9:16 layers
     for i in range(clip_count):
+        # Reset video & audio presentation timestamps to guarantee perfect AV sync
+        filters.append(f"[{i}:a]asetpts=PTS-STARTPTS[a{i}]")
+        
         # Layer 1: Blurred background full bleed 1080x1920 (optimized with 270x480 pre-downscale for ~8.6x speedup)
         filters.append(
-            f"[{i}:v]scale=270:480:force_original_aspect_ratio=increase,"
+            f"[{i}:v]setpts=PTS-STARTPTS,scale=270:480:force_original_aspect_ratio=increase,"
             f"crop=270:480,boxblur=5:2,scale=1080:1920[bg{i}]"
         )
         # Layer 2: Center gameplay crop 1080x1080
@@ -51,7 +54,7 @@ def build_9_16_filter_graph(
     filters.append(f"{v_inputs}concat=n={clip_count}:v=1:a=0[v_concat]")
 
     # Concatenate game audio streams
-    a_inputs = "".join(f"[{i}:a]" for i in range(clip_count))
+    a_inputs = "".join(f"[a{i}]" for i in range(clip_count))
     filters.append(f"{a_inputs}concat=n={clip_count}:v=0:a=1[game_audio]")
 
     final_v = "[v_concat]"
@@ -106,18 +109,19 @@ def build_16_9_cinema_filter_graph(
     filters: list[str] = []
 
     for i in range(clip_count):
-        # Scale to standard 1920x1080 (no crop)
+        # Reset video & audio presentation timestamps to guarantee perfect AV sync
         filters.append(
-            f"[{i}:v]scale=1920:1080:force_original_aspect_ratio=decrease,"
+            f"[{i}:v]setpts=PTS-STARTPTS,scale=1920:1080:force_original_aspect_ratio=decrease,"
             f"pad=1920:1080:(ow-iw)/2:(oh-ih)/2,setsar=1[v{i}]"
         )
+        filters.append(f"[{i}:a]asetpts=PTS-STARTPTS[a{i}]")
 
     # Concatenate all video streams
     v_inputs = "".join(f"[v{i}]" for i in range(clip_count))
     filters.append(f"{v_inputs}concat=n={clip_count}:v=1:a=0[v_concat]")
 
     # Concatenate game audio streams
-    a_inputs = "".join(f"[{i}:a]" for i in range(clip_count))
+    a_inputs = "".join(f"[a{i}]" for i in range(clip_count))
     filters.append(f"{a_inputs}concat=n={clip_count}:v=0:a=1[game_audio]")
 
     final_v = "[v_concat]"

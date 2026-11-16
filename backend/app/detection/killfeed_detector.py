@@ -101,9 +101,10 @@ class ValorantKillDetector:
                 crop = frame[max(0, cy):min(h, cy + ch), max(0, cx):min(w, cx + cw)]
                 if crop.size > 0:
                     hsv = cv2.cvtColor(crop, cv2.COLOR_BGR2HSV)
-                    mask_red = cv2.inRange(hsv, self.red_lower, self.red_upper)
+                    mask_red1 = cv2.inRange(hsv, self.red_lower, self.red_upper)
+                    mask_red2 = cv2.inRange(hsv, np.array([170, 130, 130], dtype=np.uint8), np.array([180, 255, 255], dtype=np.uint8))
                     mask_yellow = cv2.inRange(hsv, self.yellow_lower, self.yellow_upper)
-                    combined_mask = cv2.bitwise_or(mask_red, mask_yellow)
+                    combined_mask = cv2.bitwise_or(cv2.bitwise_or(mask_red1, mask_red2), mask_yellow)
 
                     active_pixels = cv2.countNonZero(combined_mask)
                     density = active_pixels / (crop.shape[0] * crop.shape[1])

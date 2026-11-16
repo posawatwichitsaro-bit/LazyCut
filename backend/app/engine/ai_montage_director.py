@@ -177,9 +177,11 @@ class AIMontageDirector:
 
         for idx, cut in enumerate(chrono_cuts):
             is_last = (idx == len(chrono_cuts) - 1)
-            # Give multi-kill climax moments 1.25x pacing weight
-            pacing_weight = 1.25 if (cut.kills >= 2 or is_last) else 0.95
-            desired_dur = min(cut.raw_duration, max(1.0, cut.raw_duration * scale_factor * pacing_weight))
+            # Give multi-kill climax moments 1.20x pacing weight
+            pacing_weight = 1.20 if (cut.kills >= 2 or is_last) else 0.95
+            # Prioritize readability: minimum 3.5s per engagement unless raw clip is shorter
+            min_readable = min(3.5, cut.raw_duration)
+            desired_dur = min(cut.raw_duration, max(min_readable, cut.raw_duration * scale_factor * pacing_weight))
 
             if accumulated + desired_dur > target_budget:
                 remaining = target_budget - accumulated

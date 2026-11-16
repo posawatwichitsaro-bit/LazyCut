@@ -145,28 +145,30 @@ def import_clip(
             is_verified=existing.is_verified
         )
 
-    # Scan with OpenCV
-    detector = ValorantKillDetector()
-    result = detector.analyze_clip(p)
+    # Scan with HighlightCurator for precision kill banner & audio detection
+    from backend.app.detection.highlight_curator import HighlightCurator
+    curator = HighlightCurator()
+    result = curator.curate_clip(p)
+    kill_count = len(result.moments)
 
     clip = SourceClip(
         file_path=str(p),
         file_name=p.name,
         file_size=p.stat().st_size,
         duration=result.duration,
-        kill_count=result.kill_count,
-        is_verified=result.is_verified
+        kill_count=kill_count,
+        is_verified=result.has_highlights and kill_count > 0
     )
     session.add(clip)
     session.commit()
     session.refresh(clip)
 
-    for t in result.kill_timestamps:
+    for m in result.moments:
         ke = KillEvent(
             clip_id=clip.id,
-            timestamp_sec=t,
-            confidence=0.9,
-            event_type="skull_banner"
+            timestamp_sec=m.timestamp,
+            confidence=0.95,
+            event_type="headshot" if m.is_headshot else "skull_banner"
         )
         session.add(ke)
     session.commit()
