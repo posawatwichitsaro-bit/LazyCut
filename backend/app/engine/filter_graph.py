@@ -29,33 +29,29 @@ def build_9_16_filter_graph(
 
     # Process each clip into 9:16 layers
     for i in range(clip_count):
-        # Reset video & audio presentation timestamps to guarantee perfect AV sync
-        filters.append(f"[{i}:a]asetpts=PTS-STARTPTS[a{i}]")
+        # Reset audio timestamps and lock audio rate to 48kHz with async synchronization
+        filters.append(f"[{i}:a]asetpts=PTS-STARTPTS,aresample=48000:async=1[a{i}]")
         
-        # Layer 1: Blurred background full bleed 1080x1920 (optimized with 270x480 pre-downscale for ~8.6x speedup)
+        # Layer 1: Blurred background full bleed 1080x1920 (crisp high-clarity blur)
         filters.append(
-            f"[{i}:v]setpts=PTS-STARTPTS,scale=270:480:force_original_aspect_ratio=increase,"
-            f"crop=270:480,boxblur=5:2,scale=1080:1920[bg{i}]"
+            f"[{i}:v]setpts=PTS-STARTPTS,fps=60,scale=540:960:force_original_aspect_ratio=increase,"
+            f"crop=540:960,boxblur=8:3,scale=1080:1920[bg{i}]"
         )
         # Layer 2: Center gameplay crop 1080x1080
         cx, cy, cw, ch = center["x"], center["y"], center["width"], center["height"]
-        filters.append(f"[{i}:v]crop={cw}:{ch}:{cx}:{cy}[center{i}]")
+        filters.append(f"[{i}:v]fps=60,crop={cw}:{ch}:{cx}:{cy}[center{i}]")
 
         # Layer 3: Killfeed overlay crop 420x240
         kx, ky, kw, kh = killfeed["x"], killfeed["y"], killfeed["width"], killfeed["height"]
-        filters.append(f"[{i}:v]crop={kw}:{kh}:{kx}:{ky}[kf{i}]")
+        filters.append(f"[{i}:v]fps=60,crop={kw}:{kh}:{kx}:{ky}[kf{i}]")
 
         # Composite layers into 9:16 frame for clip i
         filters.append(f"[bg{i}][center{i}]overlay=0:420[comp1_{i}]")
-        filters.append(f"[comp1_{i}][kf{i}]overlay=330:120[v{i}]")
+        filters.append(f"[comp1_{i}][kf{i}]overlay=330:120,setpts=PTS-STARTPTS,fps=60[v{i}]")
 
-    # Concatenate all video streams
-    v_inputs = "".join(f"[v{i}]" for i in range(clip_count))
-    filters.append(f"{v_inputs}concat=n={clip_count}:v=1:a=0[v_concat]")
-
-    # Concatenate game audio streams
-    a_inputs = "".join(f"[a{i}]" for i in range(clip_count))
-    filters.append(f"{a_inputs}concat=n={clip_count}:v=0:a=1[game_audio]")
+    # Joint audio/video concatenation: locks video and audio together frame-by-frame
+    va_inputs = "".join(f"[v{i}][a{i}]" for i in range(clip_count))
+    filters.append(f"{va_inputs}concat=n={clip_count}:v=1:a=1[v_concat][game_audio]")
 
     final_v = "[v_concat]"
     final_a = "[game_audio]"
@@ -109,20 +105,16 @@ def build_16_9_cinema_filter_graph(
     filters: list[str] = []
 
     for i in range(clip_count):
-        # Reset video & audio presentation timestamps to guarantee perfect AV sync
+        # Reset video & audio presentation timestamps, enforce 60fps and 48kHz async audio lock
         filters.append(
-            f"[{i}:v]setpts=PTS-STARTPTS,scale=1920:1080:force_original_aspect_ratio=decrease,"
+            f"[{i}:v]setpts=PTS-STARTPTS,fps=60,scale=1920:1080:force_original_aspect_ratio=decrease,"
             f"pad=1920:1080:(ow-iw)/2:(oh-ih)/2,setsar=1[v{i}]"
         )
-        filters.append(f"[{i}:a]asetpts=PTS-STARTPTS[a{i}]")
+        filters.append(f"[{i}:a]asetpts=PTS-STARTPTS,aresample=48000:async=1[a{i}]")
 
-    # Concatenate all video streams
-    v_inputs = "".join(f"[v{i}]" for i in range(clip_count))
-    filters.append(f"{v_inputs}concat=n={clip_count}:v=1:a=0[v_concat]")
-
-    # Concatenate game audio streams
-    a_inputs = "".join(f"[a{i}]" for i in range(clip_count))
-    filters.append(f"{a_inputs}concat=n={clip_count}:v=0:a=1[game_audio]")
+    # Joint audio/video concatenation: locks video and audio together frame-by-frame
+    va_inputs = "".join(f"[v{i}][a{i}]" for i in range(clip_count))
+    filters.append(f"{va_inputs}concat=n={clip_count}:v=1:a=1[v_concat][game_audio]")
 
     final_v = "[v_concat]"
     final_a = "[game_audio]"

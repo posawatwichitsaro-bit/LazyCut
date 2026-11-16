@@ -67,49 +67,78 @@ class MontageCompositor:
             for c in clips:
                 clip_map[c.id] = c
                 c_path = Path(c.file_path)
-                if c_path.exists():
-                    res = curator.curate_clip(c_path)
-                    if res.has_highlights and res.action_windows:
-                        top_window = res.action_windows[0]
-                        c.kill_count = max(c.kill_count, len(res.moments))
-                        c.is_verified = True
+                if not c_path.exists():
+                    continue
+
+                res = curator.curate_clip(c_path)
+                if res.has_highlights and res.action_windows:
+                    c.kill_count = max(c.kill_count, len(res.moments))
+                    c.is_verified = True
+                    # Include each confirmed action window
+                    for win in res.action_windows:
+                        win_kills = sum(1 for m in res.moments if win[0] <= m.timestamp <= win[1])
                         candidate_cuts.append(CandidateCut(
                             clip_id=c.id,
                             file_name=c.file_name,
-                            raw_start=top_window[0],
-                            raw_end=top_window[1],
-                            kills=c.kill_count,
-                            is_headshot=any(m.is_headshot for m in res.moments),
-                            energy=max((m.audio_energy for m in res.moments), default=5000.0)
+                            raw_start=win[0],
+                            raw_end=win[1],
+                            kills=max(1, win_kills),
+                            is_headshot=any(m.is_headshot for m in res.moments if win[0] <= m.timestamp <= win[1]),
+                            energy=max((m.audio_energy for m in res.moments if win[0] <= m.timestamp <= win[1]), default=5000.0)
                         ))
-                    else:
+                else:
+                    # Clip has NO confirmed kills: do NOT pollute kill montage with spawn walks or 0-kill rounds
+                    pass
+
+            # Fallback only if none of the selected clips had any detected kills
+            if not candidate_cuts:
+                for c in clips:
+                    c_path = Path(c.file_path)
+                    if c_path.exists():
                         safe_dur = min(c.duration if c.duration > 0 else 10.0, float(job.target_duration))
                         candidate_cuts.append(CandidateCut(
                             clip_id=c.id,
                             file_name=c.file_name,
                             raw_start=0.0,
                             raw_end=safe_dur,
-                            kills=c.kill_count
+                            kills=0
                         ))
-                else:
-                    safe_dur = min(c.duration if c.duration > 0 else 10.0, float(job.target_duration))
-                    candidate_cuts.append(CandidateCut(
-                        clip_id=c.id,
-                        file_name=c.file_name,
-                        raw_start=0.0,
-                        raw_end=safe_dur,
-                        kills=c.kill_count
-                    ))
 
-            # 3. Stage 2: AI Secondary Optimization & Chronological Sequencing
+            # 3. Stage 2: Pure Script Chronological Sequencing (Deterministic, No AI Mutilation)
+            # Arrange cuts strictly by chronological match order (before -> after)
+            chrono_cuts = sorted(candidate_cuts, key=lambda cut: (cut.chronological_key, cut.raw_start))
+
+            # Assemble EDL preserving the computer-vision action windows within budget limit
             budget_limit = min(float(job.target_duration), float(settings.max_montage_duration_seconds))
-            director = AIMontageDirector()
-            optimized_edl: list[OptimizedCut] = director.optimize_edl(candidate_cuts, target_budget=budget_limit)
+            optimized_edl: list[OptimizedCut] = []
+            accumulated_duration = 0.0
+
+            for idx, cut in enumerate(chrono_cuts):
+                remaining_budget = budget_limit - accumulated_duration
+                if remaining_budget <= 0.5 and len(optimized_edl) >= 1:
+                    break
+
+                cut_dur = min(cut.raw_duration, remaining_budget)
+                if cut_dur < cut.raw_duration:
+                    opt_start = cut.raw_start
+                    opt_end = cut.raw_start + cut_dur
+                else:
+                    opt_start = cut.raw_start
+                    opt_end = cut.raw_end
+
+                optimized_edl.append(OptimizedCut(
+                    clip_id=cut.clip_id,
+                    file_name=cut.file_name,
+                    start=opt_start,
+                    end=opt_end,
+                    transition="cut",
+                    title=f"Highlight {len(optimized_edl) + 1} ({cut.kills} Kills)"
+                ))
+                accumulated_duration += cut_dur
 
             if not optimized_edl:
                 raise ValueError("No valid cuts could be assembled.")
 
-            accumulated_duration = sum(cut.duration for cut in optimized_edl)
             packed_clips = [clip_map[cut.clip_id] for cut in optimized_edl if cut.clip_id in clip_map]
 
             # 4. Disk Safety Guard verification

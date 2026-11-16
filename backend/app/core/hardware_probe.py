@@ -96,7 +96,7 @@ def get_encoder_optimization_args(encoder: str) -> list[str]:
     if encoder == "libx264":
         return ["-preset", "fast", "-crf", "18"]
     elif encoder == "h264_nvenc":
-        return ["-preset", "p4", "-cq", "19", "-b:v", "18M", "-maxrate", "28M", "-bufsize", "36M", "-spatial-aq", "1", "-temporal-aq", "1"]
+        return ["-preset", "p4", "-cq", "18", "-b:v", "24M", "-maxrate", "32M", "-bufsize", "45M", "-spatial-aq", "1", "-temporal-aq", "1"]
     elif encoder == "h264_amf":
         return ["-quality", "quality", "-rc", "cqp", "-qp_i", "19", "-qp_p", "21"]
     elif encoder == "h264_qsv":

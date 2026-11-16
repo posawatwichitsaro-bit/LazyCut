@@ -100,6 +100,19 @@ def get_clip_thumbnail(clip_id: str, session: Session = Depends(get_session)):
 
     return FileResponse(str(thumb_path), media_type="image/jpeg")
 
+@router.get("/{clip_id}/stream")
+def stream_clip_video(clip_id: str, session: Session = Depends(get_session)):
+    """Streams a source clip video to the browser for in-studio preview."""
+    clip = session.get(SourceClip, clip_id)
+    if not clip:
+        raise HTTPException(status_code=404, detail="Clip not found.")
+
+    video_path = Path(clip.file_path)
+    if not video_path.exists():
+        raise HTTPException(status_code=404, detail="Video file not found on disk.")
+
+    return FileResponse(str(video_path), media_type="video/mp4")
+
 @router.get("/{clip_id}/analyze")
 def analyze_clip_highlights(clip_id: str, session: Session = Depends(get_session)):
     """Runs the HighlightCurator on a single clip, returning kill moments and action windows."""

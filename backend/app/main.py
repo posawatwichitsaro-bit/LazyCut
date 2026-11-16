@@ -426,11 +426,10 @@ STUDIO_DASHBOARD_HTML = """<!DOCTYPE html>
       // Load analysis
       document.getElementById('previewAnalysis').innerHTML = '<p style="color: var(--text-muted);">Analyzing highlights...</p>';
       
-      // Set video source - use file path directly is not possible from browser,
-      // so we show thumbnail info and analysis data
-      player.src = `/api/clips/${clipId}/thumbnail`;
+      // Set real video stream source for preview
       player.poster = `/api/clips/${clipId}/thumbnail`;
-      player.removeAttribute('src');
+      player.src = `/api/clips/${clipId}/stream`;
+      player.load();
       
       modal.classList.add('active');
 
@@ -458,9 +457,11 @@ STUDIO_DASHBOARD_HTML = """<!DOCTYPE html>
     }
 
     function closePreview(e) {
-      if (e && e.target !== document.getElementById('previewModal')) return;
+      if (e && e.target !== document.getElementById('previewModal') && !e.target.classList.contains('modal-close')) return;
+      const player = document.getElementById('previewPlayer');
+      player.pause();
+      player.removeAttribute('src');
       document.getElementById('previewModal').classList.remove('active');
-      document.getElementById('previewPlayer').pause();
     }
 
     async function rescanFolder() {

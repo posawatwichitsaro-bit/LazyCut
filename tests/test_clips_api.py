@@ -103,3 +103,7 @@ def test_clip_analyze_404_when_clip_not_found(client: TestClient):
     response = client.get("/api/clips/nonexistent-id/analyze")
     assert response.status_code == 404
 
+def test_clip_stream_404_when_clip_not_found(client: TestClient):
+    response = client.get("/api/clips/nonexistent-id/stream")
+    assert response.status_code == 404
+
