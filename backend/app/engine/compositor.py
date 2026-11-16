@@ -174,6 +174,15 @@ class MontageCompositor:
             )
             self.session.add(export)
 
+            # 9. Send Notifications (Discord / Telegram) if configured
+            if settings.discord_webhook_url:
+                try:
+                    from backend.app.engine.notifier import WebhookNotifier
+                    notifier = WebhookNotifier()
+                    notifier.send_discord(settings.discord_webhook_url, export)
+                except Exception as e:
+                    pass
+
             job.status = "COMPLETED"
             job.progress = 1.0
             self.session.commit()

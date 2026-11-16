@@ -38,6 +38,11 @@ class Settings(BaseSettings):
     min_clip_duration_seconds: float = 5.0
     max_clip_duration_seconds: float = 45.0
     
+    # Notifications & Webhooks
+    discord_webhook_url: str | None = None
+    telegram_bot_token: str | None = None
+    telegram_chat_id: str | None = None
+
     # Disk Safety Guard
     min_disk_free_bytes: int = 2 * 1024 * 1024 * 1024  # 2 GB minimum free
     disk_safety_multiplier: float = 3.0
