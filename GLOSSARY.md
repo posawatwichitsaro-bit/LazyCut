@@ -59,3 +59,16 @@ _Avoid_: GPU Checker, Driver Test
 **Kill Verification Badge**:
 A visual status indicator on a Source Clip indicating the presence and count of OpenCV-verified elimination events.
 _Avoid_: Clip Tag, Status Marker
+
+**Highlight Scorer**:
+The algorithmic evaluation engine that scores each combat event based on headshot presence, multi-kill chain density, and combat intensity, curating only the most impressive shots for assembly.
+_Avoid_: Quality Filter, Goodness Check
+
+**Precision Action Trimming**:
+The physical extraction of only the high-adrenaline window ($T_{kill} - 2.0s$ to $T_{kill} + 1.2s$) from raw source clips, eliminating walking, buying, and idle time.
+_Avoid_: Simple Cut, Subclip
+
+**Cinema Montage (16:9)**:
+A full-screen horizontal highlight montage that preserves original native resolution and wide FOV without cropping.
+_Avoid_: Fullscreen Dump, Wide Cut
+

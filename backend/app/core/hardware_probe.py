@@ -49,7 +49,7 @@ def probe_encoder(encoder_name: str, ffmpeg_bin: str) -> bool:
         ffmpeg_bin,
         "-y",
         "-f", "lavfi",
-        "-i", "color=c=black:s=128x128:d=0.1",
+        "-i", "color=c=black:s=256x256:d=0.1",
         "-c:v", encoder_name,
         "-f", "null",
         "-"

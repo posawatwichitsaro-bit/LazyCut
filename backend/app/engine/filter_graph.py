@@ -89,3 +89,58 @@ def build_9_16_filter_graph(
 
     filter_script = ";\n".join(filters)
     return filter_script, final_v, final_a
+
+def build_16_9_cinema_filter_graph(
+    clip_count: int,
+    bgm_present: bool = False,
+    ducking_db: float = -14.0,
+    fadeout_style: str = "exp",
+    fadeout_duration: float = 2.0,
+    total_duration: float = 60.0
+) -> tuple[str, str, str]:
+    """
+    Constructs an FFmpeg filter_complex script for 16:9 full-screen cinema montage.
+    No crop: preserves full 1920x1080 field of view, stitching raw combat action cuts.
+    Returns: (filter_script, final_video_label, final_audio_label)
+    """
+    filters: list[str] = []
+
+    for i in range(clip_count):
+        # Scale to standard 1920x1080 (no crop)
+        filters.append(
+            f"[{i}:v]scale=1920:1080:force_original_aspect_ratio=decrease,"
+            f"pad=1920:1080:(ow-iw)/2:(oh-ih)/2,setsar=1[v{i}]"
+        )
+
+    # Concatenate all video streams
+    v_inputs = "".join(f"[v{i}]" for i in range(clip_count))
+    filters.append(f"{v_inputs}concat=n={clip_count}:v=1:a=0[v_concat]")
+
+    # Concatenate game audio streams
+    a_inputs = "".join(f"[{i}:a]" for i in range(clip_count))
+    filters.append(f"{a_inputs}concat=n={clip_count}:v=0:a=1[game_audio]")
+
+    final_v = "[v_concat]"
+    final_a = "[game_audio]"
+
+    if bgm_present:
+        bgm_idx = clip_count
+        duck_level = max(0.05, 10 ** (ducking_db / 20.0))
+        filters.append(f"[{bgm_idx}:a]aloop=loop=-1:size=2e+09[bgm_loop]")
+        filters.append(
+            f"[bgm_loop][game_audio]sidechaincompress="
+            f"threshold=0.08:ratio=8:attack=20:release=300:level_in={duck_level:.2f}[ducked_bgm]"
+        )
+        filters.append("[game_audio][ducked_bgm]amix=inputs=2:duration=first:dropout_transition=2[mixed_audio]")
+        final_a = "[mixed_audio]"
+
+    fade_start = max(0.0, total_duration - fadeout_duration)
+    curve_type = "exp" if fadeout_style == "exp" else ("log" if fadeout_style == "log" else "tri")
+
+    filters.append(f"{final_a}afade=t=out:st={fade_start:.2f}:d={fadeout_duration:.2f}:curve={curve_type}[a_faded]")
+    final_a = "[a_faded]"
+    filters.append(f"{final_v}fade=t=out:st={fade_start:.2f}:d={fadeout_duration:.2f}[v_faded]")
+    final_v = "[v_faded]"
+
+    filter_script = ";\n".join(filters)
+    return filter_script, final_v, final_a

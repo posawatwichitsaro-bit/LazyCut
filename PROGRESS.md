@@ -50,7 +50,14 @@ Phase 4: Open-Source Release & Packaging (100% Completed)
   ├── Community Contribution Guidelines (CONTRIBUTING.md) ─ [x] Completed
   ├── GitHub Actions Automated CI Workflow (.github/) ──── [x] Completed
   ├── Windows One-Click start.bat Bootstrap ─────────────── [x] Completed & Verified
-  └── Automated Test Suite CI Coverage (37/37 Tests) ────── [x] Completed (100% Pass)
+  └── Automated Test Suite CI Coverage (41/41 Tests) ────── [x] Completed (100% Pass)
+
+Phase 5: AI Highlight Curation & Montage Studio (100% Completed)
+  ├── RTX 5070 NVENC Hardware Acceleration (P5-01) ──────── [x] Completed (Detected h264_nvenc)
+  ├── Multi-Signal Kill & Headshot Detector 2.0 (P5-02) ─── [x] Completed (TDD passed)
+  ├── AI Highlight Scorer (Headshots, Chains, Flicks) (P5-03) [x] Completed (TDD passed)
+  ├── Precision Action Trimming (Cut Spawn Walking) (P5-04) ─ [x] Completed (TDD passed)
+  └── Multi-Clip 16:9 Cinema & 9:16 Montage Assembler (P5-05) [x] Completed (TDD passed)
 ```
 
 ---
@@ -84,6 +91,12 @@ Phase 4: Open-Source Release & Packaging (100% Completed)
 | **P4-01** | **Preset Guide** | Detailed guide for measuring screen coordinates and authoring community presets | `DONE` |
 | **P4-02** | **Contributing Guide**| Open-source contribution rules, TDD development loop, and MIT License terms | `DONE` |
 | **P4-03** | **GitHub Actions CI** | Automated cross-python testing workflow (`.github/workflows/ci.yml`) | `DONE` |
+| **P5-01** | **RTX 5070 NVENC** | Auto-probe 256x256 fix to unlock hardware-accelerated NVENC on NVIDIA RTX 5070 | `DONE` |
+| **P5-02** | **Multi-Signal Detector**| Valorant combat & kill detection using player killfeed highlights + headshot icons + audio chimes | `DONE` |
+| **P5-03** | **Highlight Scorer** | Algorithmic scoring ranking clips by headshot count, multi-kill chains, and eliminating dead footage | `DONE` |
+| **P5-04** | **Action Trimming** | Physical extraction of $T_{kill}-2.5s$ to $T_{kill}+1.2s$ per kill, removing spawn walks | `DONE` |
+| **P5-05** | **Montage Assembler** | Multi-clip montage stitching top highlights into 16:9 Cinema and 9:16 Short formats | `DONE` |
+
 
 ---
 

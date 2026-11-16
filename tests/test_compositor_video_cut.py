@@ -212,3 +212,52 @@ def test_real_multi_clip_concatenation_and_cutting(tmp_path, db_session, monkeyp
     assert h == 1920
     assert dur <= 4.5, f"Multi-clip cut was not constrained to budget: {dur}s"
     assert "Clip 1" in export.chapters_txt
+
+def test_real_cinema_16_9_montage_assembly(tmp_path, db_session, monkeypatch):
+    """
+    Unit test verifying 16:9 Full-Screen Cinema Montage:
+    - Pure highlight cuts stitched in original 1920x1080 widescreen (no crop, no background blur)
+    - Verifies output dimensions are strictly 1920x1080 (16:9 aspect ratio)
+    """
+    exports_dir = tmp_path / "exports"
+    exports_dir.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setattr(settings, "exports_dir", exports_dir)
+
+    c1_path = tmp_path / "cinema_clip1.mp4"
+    c2_path = tmp_path / "cinema_clip2.mp4"
+    create_synthetic_test_video(c1_path, duration_seconds=3, width=1920, height=1080)
+    create_synthetic_test_video(c2_path, duration_seconds=3, width=1920, height=1080)
+
+    c1 = SourceClip(id="cin1", file_path=str(c1_path), file_name="c1.mp4", duration=3.0, kill_count=2, is_verified=True)
+    c2 = SourceClip(id="cin2", file_path=str(c2_path), file_name="c2.mp4", duration=3.0, kill_count=3, is_verified=True)
+    db_session.add(c1)
+    db_session.add(c2)
+
+    job = MontageJob(
+        id="job-cinema-test",
+        preset_id="valorant_1080p",
+        vibe_id="hype_montage",
+        target_duration=6,
+        selected_clips_json=json.dumps(["cin1", "cin2"]),
+        status="QUEUED"
+    )
+    db_session.add(job)
+    db_session.commit()
+
+    compositor = MontageCompositor(db_session=db_session)
+    export = compositor.execute_job(job_id=job.id, output_format="16:9")
+
+    out_path = Path(export.output_path)
+    assert out_path.exists()
+
+    cap = cv2.VideoCapture(str(out_path))
+    assert cap.isOpened()
+    w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    cap.release()
+
+    # Verify 16:9 widescreen dimensions (NOT cropped to 1080x1920!)
+    assert w == 1920, f"Expected 1920 width, got {w}"
+    assert h == 1080, f"Expected 1080 height, got {h}"
+    assert export.aspect_ratio == "16:9"
+
