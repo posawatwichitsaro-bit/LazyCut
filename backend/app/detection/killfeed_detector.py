@@ -4,6 +4,10 @@ import cv2
 import numpy as np
 from backend.app.core.config import settings
 
+TEMPLATE_DIR = Path(__file__).resolve().parent / "templates"
+CHAN_TEMPLATE_PATH = TEMPLATE_DIR / "chan_template.png"
+HEADSHOT_TEMPLATE_PATH = TEMPLATE_DIR / "headshot_template.png"
+
 class KillDetectionResult:
     def __init__(
         self,
@@ -29,34 +33,84 @@ class KillDetectionResult:
 
 
 class ValorantKillDetector:
+    """
+    Precision Valorant Killfeed Detector:
+    Detects player-confirmed kills specifically via the 3-layer signature:
+    1. Thai word 'ฉัน' (Me) on killer card via template matching.
+    2. Lime-Yellow border outline around the player box.
+    3. Green/Teal killer rectangular banner.
+    Accurately handles multi-kill stacks (Roman numerals III, IV, V).
+    """
     def __init__(self, preset_path: Path | None = None):
         if preset_path is None:
             preset_path = settings.presets_dir / "valorant_1080p.json"
 
-        with open(preset_path, "r", encoding="utf-8") as f:
-            self.preset = json.load(f)
+        if preset_path.exists():
+            with open(preset_path, "r", encoding="utf-8") as f:
+                self.preset = json.load(f)
+        else:
+            self.preset = {}
 
-        regions = self.preset.get("regions", {})
-        self.banner_rect = regions.get("skull_banner", {"x": 840, "y": 780, "width": 240, "height": 160})
-        self.detection_cfg = self.preset.get("detection_config", {})
+        self.chan_tmpl = cv2.imread(str(CHAN_TEMPLATE_PATH), cv2.IMREAD_GRAYSCALE) if CHAN_TEMPLATE_PATH.exists() else None
+        self.hs_tmpl = cv2.imread(str(HEADSHOT_TEMPLATE_PATH), cv2.IMREAD_GRAYSCALE) if HEADSHOT_TEMPLATE_PATH.exists() else None
 
-        # Color thresholds in HSV
-        self.red_lower = np.array(self.detection_cfg.get("banner_red_lower", [0, 130, 130]), dtype=np.uint8)
-        self.red_upper = np.array(self.detection_cfg.get("banner_red_upper", [10, 255, 255]), dtype=np.uint8)
-        self.yellow_lower = np.array(self.detection_cfg.get("banner_yellow_lower", [15, 150, 150]), dtype=np.uint8)
-        self.yellow_upper = np.array(self.detection_cfg.get("banner_yellow_upper", [35, 255, 255]), dtype=np.uint8)
-        self.min_density = self.detection_cfg.get("min_kill_pixel_density", 0.08)
+    def detect_kills_in_roi(self, roi: np.ndarray) -> tuple[int, bool]:
+        """
+        Detects player kills within a killfeed region of interest.
+        Returns: (kill_count, is_headshot)
+        """
+        if roi is None or roi.size == 0 or self.chan_tmpl is None:
+            return 0, False
+
+        gray_roi = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY) if len(roi.shape) == 3 else roi
+        res = cv2.matchTemplate(gray_roi, self.chan_tmpl, cv2.TM_CCOEFF_NORMED)
+
+        threshold = 0.70
+        locs = np.where(res >= threshold)
+        pts = list(zip(locs[1], locs[0]))
+        pts.sort(key=lambda p: res[p[1], p[0]], reverse=True)
+
+        th_w, th_h = self.chan_tmpl.shape[1], self.chan_tmpl.shape[0]
+        confirmed_kills: list[tuple[int, int]] = []
+        is_headshot = False
+
+        for x, y in pts:
+            # Enforce at least 18px separation between stacked killfeed rows
+            if not any(abs(y - cy) < 18 for cx, cy in confirmed_kills):
+                y_min = max(0, y - 10)
+                y_max = min(roi.shape[0], y + th_h + 10)
+                x_min = max(0, x - 90)
+                x_max = min(roi.shape[1], x + th_w + 180)
+                row = roi[y_min:y_max, x_min:x_max]
+
+                if row.size == 0:
+                    continue
+
+                hsv = cv2.cvtColor(row, cv2.COLOR_BGR2HSV)
+                yellow = cv2.countNonZero(cv2.inRange(hsv, np.array([25, 60, 110]), np.array([55, 255, 255])))
+                green = cv2.countNonZero(cv2.inRange(hsv, np.array([65, 60, 90]), np.array([110, 255, 255])))
+
+                # Validate yellow border (>= 120 px) and green card (>= 400 px)
+                if yellow >= 120 and green >= 400:
+                    confirmed_kills.append((x, y))
+                    if self.hs_tmpl is not None:
+                        gray_row = cv2.cvtColor(row, cv2.COLOR_BGR2GRAY)
+                        hs_res = cv2.matchTemplate(gray_row, self.hs_tmpl, cv2.TM_CCOEFF_NORMED)
+                        if cv2.minMaxLoc(hs_res)[1] >= 0.75:
+                            is_headshot = True
+
+        return len(confirmed_kills), is_headshot
 
     def analyze_clip(
         self,
         video_path: str | Path,
-        lead_in: float = 3.0,
-        lead_out: float = 1.5,
+        lead_in: float = 4.5,
+        lead_out: float = 2.5,
         bridge_threshold: float = 4.0,
         sample_fps: float = 4.0
     ) -> KillDetectionResult:
         """
-        Scans a Source Clip for elimination banners and calculates the Action Windows.
+        Scans a Source Clip for player 'ฉัน' killfeed banners and calculates the Action Windows.
         """
         video_path_str = str(video_path)
         cap = cv2.VideoCapture(video_path_str)
@@ -74,12 +128,6 @@ class ValorantKillDetector:
         frame_step = max(1, int(round(fps / sample_fps)))
         raw_kill_timestamps: list[float] = []
 
-        bx = self.banner_rect["x"]
-        by = self.banner_rect["y"]
-        bw = self.banner_rect["width"]
-        bh = self.banner_rect["height"]
-        banner_area = bw * bh
-
         frame_idx = 0
         while cap.isOpened():
             ret, frame = cap.read()
@@ -88,37 +136,31 @@ class ValorantKillDetector:
 
             if frame_idx % frame_step == 0:
                 h, w = frame.shape[:2]
+                sx, sy = w / 1920.0, h / 1080.0
                 
-                # Scale coordinates if video resolution differs from 1920x1080
-                sx = w / 1920.0
-                sy = h / 1080.0
-                cx = int(bx * sx)
-                cy = int(by * sy)
-                cw = int(bw * sx)
-                ch = int(bh * sy)
+                # Top-Right Killfeed ROI
+                y1 = int(30 * sy)
+                y2 = int(350 * sy)
+                x1 = int(1350 * sx)
+                x2 = int(1920 * sx)
+                roi = frame[y1:y2, x1:x2]
 
-                # Ensure crop stays within image bounds
-                crop = frame[max(0, cy):min(h, cy + ch), max(0, cx):min(w, cx + cw)]
-                if crop.size > 0:
-                    hsv = cv2.cvtColor(crop, cv2.COLOR_BGR2HSV)
-                    mask_red1 = cv2.inRange(hsv, self.red_lower, self.red_upper)
-                    mask_red2 = cv2.inRange(hsv, np.array([170, 130, 130], dtype=np.uint8), np.array([180, 255, 255], dtype=np.uint8))
-                    mask_yellow = cv2.inRange(hsv, self.yellow_lower, self.yellow_upper)
-                    combined_mask = cv2.bitwise_or(cv2.bitwise_or(mask_red1, mask_red2), mask_yellow)
+                if abs(sx - 1.0) > 0.05 or abs(sy - 1.0) > 0.05:
+                    roi = cv2.resize(roi, (570, 320))
 
-                    active_pixels = cv2.countNonZero(combined_mask)
-                    density = active_pixels / (crop.shape[0] * crop.shape[1])
-
-                    if density >= self.min_density:
-                        current_sec = frame_idx / fps
+                kills, _ = self.detect_kills_in_roi(roi)
+                if kills > 0:
+                    current_sec = frame_idx / fps
+                    # If multiple kills stacked in this frame, append multiple timestamps
+                    for _ in range(kills):
                         raw_kill_timestamps.append(current_sec)
 
             frame_idx += 1
 
         cap.release()
 
-        # Cluster kill timestamps: merge hits within 1.0 second into a single kill event
-        clustered_kills = self._cluster_timestamps(raw_kill_timestamps, cluster_window=1.0)
+        # Cluster kill timestamps: merge hits within 2.0 seconds into a single kill event
+        clustered_kills = self._cluster_timestamps(raw_kill_timestamps, cluster_window=2.0)
 
         # Build Action Windows with Lead-in, Lead-out, and Kill-Chain Bridging
         action_windows = self._compute_action_windows(
@@ -137,7 +179,7 @@ class ValorantKillDetector:
             is_verified=is_verified
         )
 
-    def _cluster_timestamps(self, timestamps: list[float], cluster_window: float = 1.0) -> list[float]:
+    def _cluster_timestamps(self, timestamps: list[float], cluster_window: float = 2.0) -> list[float]:
         if not timestamps:
             return []
 
@@ -148,7 +190,6 @@ class ValorantKillDetector:
             else:
                 clusters[-1].append(t)
 
-        # Return the peak / center timestamp of each cluster
         return [sum(c) / len(c) for c in clusters]
 
     def _compute_action_windows(
@@ -160,24 +201,20 @@ class ValorantKillDetector:
         bridge_threshold: float
     ) -> list[tuple[float, float]]:
         if not kills:
-            # If no kill verified, fall back to entire clip
             return [(0.0, duration)]
 
-        # Initial windows around each kill
         raw_windows: list[tuple[float, float]] = []
         for k in kills:
             start = max(0.0, k - lead_in)
             end = min(duration, k + lead_out)
             raw_windows.append((start, end))
 
-        # Merge overlapping or near windows (Kill-Chain Bridging)
         merged: list[tuple[float, float]] = []
         for start, end in sorted(raw_windows, key=lambda w: w[0]):
             if not merged:
                 merged.append((start, end))
             else:
                 prev_start, prev_end = merged[-1]
-                # If gap is smaller than bridge threshold, bridge them
                 if start - prev_end <= bridge_threshold:
                     merged[-1] = (prev_start, max(prev_end, end))
                 else:

@@ -56,3 +56,23 @@ def test_action_window_no_kills_fallback():
     )
     assert len(windows) == 1
     assert windows[0] == (0.0, 20.0)
+
+def test_detect_player_kills_single_and_triple_feed():
+    import cv2
+    from pathlib import Path
+    detector = ValorantKillDetector()
+    
+    single_path = Path("tests/fixtures/killfeed_single.png")
+    triple_path = Path("tests/fixtures/killfeed_triple.jpg")
+    
+    if single_path.exists():
+        img_single = cv2.imread(str(single_path))
+        kills, is_hs = detector.detect_kills_in_roi(img_single)
+        assert kills == 1
+        assert is_hs is True
+        
+    if triple_path.exists():
+        img_triple = cv2.imread(str(triple_path))
+        kills, is_hs = detector.detect_kills_in_roi(img_triple)
+        assert kills == 3
+        assert is_hs is True

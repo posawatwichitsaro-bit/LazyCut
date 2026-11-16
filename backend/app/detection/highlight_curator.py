@@ -60,12 +60,18 @@ class CuratedHighlight:
 
 class HighlightCurator:
     """
-    AI Combat Highlight Curator:
-    Analyzes audio energy peaks (gunfire/kill chimes) and visual combat cues (killfeed & banner)
-    to curate ONLY beautiful shots (Headshots, Multi-kills, Clutch flicks) and discard non-combat walking.
+    Precision Combat Highlight Curator:
+    Detects player-confirmed kills specifically via:
+    1. Thai word 'ฉัน' (Me) on killer card in killfeed.
+    2. Lime-Yellow border outline around the player card.
+    3. Green/Teal killer rectangular banner.
+    4. Headshot crosshair icon detection.
+    Curates genuine kills with full context and eliminates non-combat walking.
     """
     def __init__(self, preset_path: Path | None = None):
         self.ffmpeg_bin = get_ffmpeg_binary()
+        from backend.app.detection.killfeed_detector import ValorantKillDetector
+        self.killfeed_detector = ValorantKillDetector(preset_path)
 
     def score_moment(self, moment: CombatMoment) -> float:
         """Scores a moment: Headshots and Multi-kills receive top hype scores."""
@@ -212,9 +218,8 @@ class HighlightCurator:
         audio_peaks = self.extract_audio_peaks(video_path)
         energy_map = {round(t * 2) / 2.0: e for t, e in audio_peaks}
 
-        # 2. Sample frames at ~3 fps (step = max(1, fps * 0.33))
-        # Kill banners persist on screen for ~1.5 seconds, guaranteeing 100% catch rate
-        step = max(1, int(fps * 0.33))
+        # 2. Sample frames at ~4 fps
+        step = max(1, int(round(fps * 0.25)))
         combat_moments: list[CombatMoment] = []
         last_kill_t = -10.0
 
@@ -227,44 +232,28 @@ class HighlightCurator:
             t = frame_idx / fps
 
             h, w = frame.shape[:2]
-            scale = (w * h) / (1920.0 * 1080.0)
+            sx, sy = w / 1920.0, h / 1080.0
 
-            # Center-bottom Kill Banner ROI: x: 42%..58%, y: 76%..93%
-            y1, y2 = int(0.76 * h), int(0.93 * h)
-            x1, x2 = int(0.42 * w), int(0.58 * w)
-            cb = frame[y1:y2, x1:x2]
-            hsv_cb = cv2.cvtColor(cb, cv2.COLOR_BGR2HSV)
+            # Killfeed ROI (Top-Right): x: 0.68..1.0, y: 0.02..0.35
+            y1, y2 = int(30 * sy), int(350 * sy)
+            x1, x2 = int(1350 * sx), int(1920 * sx)
+            kf_roi = frame[y1:y2, x1:x2]
 
-            # Red Skull Banner (Default & standard skin finishers)
-            red1 = cv2.inRange(hsv_cb, (0, 140, 120), (10, 255, 255))
-            red2 = cv2.inRange(hsv_cb, (170, 140, 120), (180, 255, 255))
-            red_count = cv2.countNonZero(red1 | red2)
+            if abs(sx - 1.0) > 0.05 or abs(sy - 1.0) > 0.05:
+                kf_roi = cv2.resize(kf_roi, (570, 320))
 
-            # Gold / Yellow Finisher Banner (Champions, Kuronami, Prime, Sovereign)
-            gold = cv2.inRange(hsv_cb, (15, 120, 140), (32, 255, 255))
-            gold_count = cv2.countNonZero(gold)
-
-            # Check Killfeed headshot icon (top right: x 72%..100%, y 3%..28%)
-            kf_roi = frame[int(0.03 * h):int(0.28 * h), int(0.72 * w):w]
-            hsv_kf = cv2.cvtColor(kf_roi, cv2.COLOR_BGR2HSV)
-            kf_red1 = cv2.inRange(hsv_kf, (0, 140, 120), (10, 255, 255))
-            kf_red2 = cv2.inRange(hsv_kf, (170, 140, 120), (180, 255, 255))
-            kf_red_count = cv2.countNonZero(kf_red1 | kf_red2)
+            # Detect kills by user: 'ฉัน' + lime-yellow border + green/teal box
+            kf_kills, is_headshot = self.killfeed_detector.detect_kills_in_roi(kf_roi)
 
             t_bucket = round(t * 2) / 2.0
             audio_e = energy_map.get(t_bucket, 0.0)
 
-            # Strict elimination validation: genuine Kill Banner + combat audio confirmation
-            has_red_banner = (red_count >= int(750 * scale) and audio_e >= 3000.0)
-            has_gold_banner = (gold_count >= int(1000 * scale))
-            is_headshot = kf_red_count >= int(350 * scale)
-
-            if has_red_banner or has_gold_banner:
-                # Debounce consecutive frames of the same banner (0.8s cooldown captures multi-kills)
-                if t - last_kill_t >= 0.8:
+            if kf_kills > 0:
+                # Debounce consecutive detections within 1.5s
+                if t - last_kill_t >= 1.5:
                     moment = CombatMoment(
                         timestamp=t,
-                        kill_count=1,
+                        kill_count=kf_kills,
                         is_headshot=is_headshot,
                         audio_energy=audio_e,
                         is_player_kill=True
@@ -272,6 +261,12 @@ class HighlightCurator:
                     self.score_moment(moment)
                     combat_moments.append(moment)
                     last_kill_t = t
+                else:
+                    if combat_moments:
+                        combat_moments[-1].kill_count = max(combat_moments[-1].kill_count, kf_kills)
+                        if is_headshot:
+                            combat_moments[-1].is_headshot = True
+                        self.score_moment(combat_moments[-1])
 
             frame_idx += step
 
