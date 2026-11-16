@@ -7,19 +7,17 @@ router = APIRouter(prefix="/api", tags=["Presets & Audio"])
 
 @router.get("/presets")
 def list_presets():
-    presets = []
-    for f in settings.presets_dir.glob("*.json"):
-        try:
-            with open(f, "r", encoding="utf-8") as pf:
-                data = json.load(pf)
-                presets.append({
-                    "id": f.stem,
-                    "name": data.get("game_name", f.stem),
-                    "file": f.name
-                })
-        except Exception:
-            pass
-    return presets
+    from backend.app.core.preset_validator import load_and_validate_all_presets
+    valid_presets, invalid = load_and_validate_all_presets(settings.presets_dir)
+    return [
+        {
+            "id": p.get("preset_id"),
+            "name": p.get("game_name", p.get("preset_id")),
+            "file": f"{p.get('preset_id')}.json",
+            "is_valid": True
+        }
+        for p in valid_presets
+    ]
 
 @router.get("/vibes")
 def list_vibes():
