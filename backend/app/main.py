@@ -160,11 +160,12 @@ STUDIO_DASHBOARD_HTML = """<!DOCTYPE html>
         </div>
 
         <!-- Filter Pills -->
-        <div class="filter-pills" id="filterPills">
+        <div class="filter-pills" id="filterPills" style="display: flex; align-items: center; gap: 0.5rem;">
           <button class="pill active" onclick="filterClips('all', this)">All Clips</button>
           <button class="pill" onclick="filterClips('kills', this)">🎯 Has Kills Only</button>
           <button class="pill" onclick="filterClips('duration', this)">⏱️ 5s–45s Only</button>
           <button class="pill" onclick="filterClips('verified', this)">Verified</button>
+          <button class="btn btn-outline" style="font-size: 0.75rem; padding: 0.25rem 0.6rem; margin-left: auto;" onclick="rescanFolder()">🔄 Rescan Folder</button>
         </div>
 
         <table>
@@ -196,10 +197,10 @@ STUDIO_DASHBOARD_HTML = """<!DOCTYPE html>
             <option value="raw_clean">Raw Clean (Game Audio Only)</option>
           </select>
           <select id="formatSelect">
-            <option value="9:16">9:16 Vertical (Shorts/TikTok)</option>
-            <option value="16:9">16:9 Fullscreen (YouTube)</option>
+            <option value="16:9">16:9 Cinema Montage (Full Screen)</option>
+            <option value="9:16">9:16 Vertical Short (TikTok/Reels)</option>
           </select>
-          <button class="btn" onclick="startMontage()">⚡ Generate 9:16 Reel</button>
+          <button class="btn" onclick="startMontage()">⚡ Generate Montage</button>
         </div>
       </div>
     </section>
@@ -368,6 +369,17 @@ STUDIO_DASHBOARD_HTML = """<!DOCTYPE html>
     function updateSelectionCount() {
       const count = document.querySelectorAll('.clip-cb:checked').length;
       document.getElementById('selectionCounter').innerText = `${count} clip${count !== 1 ? 's' : ''} selected`;
+    }
+
+    async function rescanFolder() {
+      try {
+        const res = await fetch('/api/clips/scan', { method: 'POST' });
+        const data = await res.json();
+        alert(`Scanned library: Discovered ${data.total_clips} clips in folder!`);
+        loadClips();
+      } catch (e) {
+        alert('Scan error: ' + e);
+      }
     }
 
     async function importManualClip() {

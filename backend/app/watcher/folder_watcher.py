@@ -139,6 +139,41 @@ class FolderWatcherService:
         self.observer.start()
         logger.info(f"Started folder watcher on {watch_dir}")
 
+        # Scan and register all existing video files in the watch directory
+        self.scan_existing_clips(watch_dir)
+
+    def scan_existing_clips(self, watch_dir: Path) -> int:
+        """Discovers and registers all video files in the target directory into SQLite."""
+        registered_count = 0
+        import cv2
+        with Session(engine) as session:
+            for ext in settings.watch_extensions:
+                for file_path in watch_dir.glob(f"*{ext}"):
+                    stmt = select(SourceClip).where(SourceClip.file_path == str(file_path))
+                    existing = session.exec(stmt).first()
+                    if not existing:
+                        try:
+                            cap = cv2.VideoCapture(str(file_path))
+                            fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
+                            frames = cap.get(cv2.CAP_PROP_FRAME_COUNT)
+                            dur = frames / fps if frames > 0 else 0.0
+                            cap.release()
+                            size = file_path.stat().st_size
+                            clip = SourceClip(
+                                file_path=str(file_path),
+                                file_name=file_path.name,
+                                file_size=size,
+                                duration=dur,
+                                kill_count=0,
+                                is_verified=False
+                            )
+                            session.add(clip)
+                            registered_count += 1
+                        except Exception as e:
+                            logger.error(f"Error registering {file_path}: {e}")
+            session.commit()
+        return registered_count
+
     def stop(self):
         if self.observer and self.observer.is_alive():
             self.observer.stop()

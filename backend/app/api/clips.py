@@ -115,3 +115,16 @@ def import_clip(
         kill_count=clip.kill_count,
         is_verified=clip.is_verified
     )
+
+@router.post("/scan")
+def scan_watch_directory(session: Session = Depends(get_session)):
+    """Scans the configured watch path and imports all discovered video files."""
+    from backend.app.core.config import settings
+    from backend.app.watcher.folder_watcher import watcher_service
+    if not settings.watch_path or not Path(settings.watch_path).exists():
+        raise HTTPException(status_code=400, detail="Watch path is not configured or does not exist.")
+
+    registered = watcher_service.scan_existing_clips(Path(settings.watch_path))
+    total_clips = len(session.exec(select(SourceClip)).all())
+    return {"registered_new": registered, "total_clips": total_clips}
+
