@@ -50,7 +50,7 @@ Phase 4: Open-Source Release & Packaging (100% Completed)
   ├── Community Contribution Guidelines (CONTRIBUTING.md) ─ [x] Completed
   ├── GitHub Actions Automated CI Workflow (.github/) ──── [x] Completed
   ├── Windows One-Click start.bat Bootstrap ─────────────── [x] Completed & Verified
-  └── Automated Test Suite CI Coverage (35/35 Tests) ────── [x] Completed (100% Pass)
+  └── Automated Test Suite CI Coverage (37/37 Tests) ────── [x] Completed (100% Pass)
 ```
 
 ---
@@ -72,6 +72,7 @@ Phase 4: Open-Source Release & Packaging (100% Completed)
 | **P1-11** | **Test Suite** | Unit tests for safety, detection, filter graph, and models (9/9 passed) | `DONE` |
 | **P1-12** | **Encoder Optimization**| AMF (`-quality speed`), NVENC (`-preset p4`), x264 (`-preset fast`) flag resolver | `DONE` |
 | **P1-13** | **Blur Performance** | 8.6x faster cinematic background blur using 270x480 pre-downscale pipeline | `DONE` |
+| **P1-14** | **Physical Video Cut** | OpenCV & FFmpeg unit test asserting actual video trimming, 9:16 aspect ratio transform, decoded pixel layers, and budget constraint | `DONE` |
 | **P2-01** | **Metadata Engine** | `ReelMetadataEngine` with Zero-AI Fallback, tags, and YouTube chapters (TDD passed) | `DONE` |
 | **P2-02** | **Clips Filtering API** | `GET /api/clips` query filtering by kills, duration range, and verification status (TDD passed) | `DONE` |
 | **P2-03** | **Montage Job API** | `POST /api/jobs` and `GET /api/jobs/{id}/export` lifecycle validation (TDD passed) | `DONE` |
@@ -104,3 +105,4 @@ Phase 4: Open-Source Release & Packaging (100% Completed)
   - Benchmarked and deployed 8.6x faster cinematic background blur optimization (`scale=270:480,boxblur=5:2,scale=1080:1920`), reducing reel render time down to 3.08 seconds!
   - 35/35 automated unit & integration tests passing with 100% success rate.
   - Completed end-to-end browser user workflow testing on `http://localhost:8000/` with live clip library at `D:\Clips\Valorant`: Settings watch path configuration, clip feed selection, 9:16 vertical reel rendering (`reel_20261116_145014_bc94cc70.mp4`), and Reel Inspector verification with in-browser video playback and YouTube chapters copy.
+  - Authored physical video cut and composition unit tests (`tests/test_compositor_video_cut.py`) verifying real FFmpeg rendering, actual duration trimming (6.0s down to <=2.5s), 16:9 to 9:16 aspect ratio transformation, layer pixel decoding, and budget enforcement. Test suite expanded to 37/37 passing (100%).
