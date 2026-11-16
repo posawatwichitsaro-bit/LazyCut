@@ -1,0 +1,21 @@
+{
+  "vibe_id": "chill_memory",
+  "name": "Chill Memory",
+  "description": "Smooth cinematic pacing with gentle BGM ducking and warm logarithmic fade-out.",
+  "audio_ducking": {
+    "enabled": true,
+    "ducking_level_db": -10.0,
+    "attack_ms": 40,
+    "release_ms": 500,
+    "threshold": 0.10
+  },
+  "action_window": {
+    "lead_in_seconds": 4.0,
+    "lead_out_seconds": 2.5,
+    "kill_chain_bridge_threshold_seconds": 5.0
+  },
+  "fadeout_style": "log",
+  "fadeout_duration_seconds": 2.5,
+  "bgm_loop": true,
+  "default_bgm_track": null
+}

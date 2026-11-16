@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LazyCut Data & Entity Model</title>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper:   #f5f5f5;
+      --color-ink:     #2d3142;
+      --color-muted:   #4f5d75;
+      --color-accent:  #bf4520;
+      --font-sans:     'Geist', system-ui, sans-serif;
+      --font-serif:    'Instrument Serif', Georgia, serif;
+      --font-mono:     'Geist Mono', monospace;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background: var(--color-paper);
+      color: var(--color-ink);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2.5rem 1.5rem;
+    }
+
+    .frame { max-width: 1200px; width: 100%; }
+    .diagram-container { width: 100%; overflow-x: auto; }
+
+    .eyebrow {
+      font-family: var(--font-mono);
+      font-size: 0.68rem;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--color-muted);
+      margin-bottom: 0.5rem;
+    }
+
+    h1 {
+      font-family: var(--font-serif);
+      font-size: clamp(1.6rem, 2.4vw + 0.8rem, 2.2rem);
+      font-weight: 400;
+      letter-spacing: -0.02em;
+      line-height: 1.15;
+      color: var(--color-ink);
+      margin-bottom: 1.5rem;
+    }
+
+    svg { width: 100%; min-width: 1000px; display: block; }
+
+    @media print {
+      .diagram-container { overflow-x: visible; }
+      svg { min-width: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">ER Model · Persistence & Configuration</p>
+    <h1>LazyCut Data & Entity Model</h1>
+
+    <div class="diagram-container">
+      <svg viewBox="0 0 1080 640" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="lazycut-er-title lazycut-er-desc">
+        <title id="lazycut-er-title">LazyCut Data and Entity Model</title>
+        <desc id="lazycut-er-desc">Entity relationship diagram representing SQLite relational tables and external JSON preset models for LazyCut.</desc>
+
+        <!-- Background -->
+        <rect width="100%" height="100%" fill="#f5f5f5"/>
+
+        <!-- ================= RELATIONSHIP LINES (Drawn Before Entities) ================= -->
+
+        <!-- 1. SourceClip (1) to KillEvent (N) (Straight vertical) -->
+        <line x1="160" y1="210" x2="160" y2="340" stroke="#4f5d75" stroke-width="1.2"/>
+        <text x="146" y="228" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace">1</text>
+        <text x="146" y="328" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace">N</text>
+        <rect x="136" y="266" width="48" height="14" rx="2" fill="#f5f5f5"/>
+        <text x="160" y="276" fill="#4f5d75" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle">SCANS</text>
+
+        <!-- 2. SourceClip (N) to MontageJob (N) (Right + Down Elbow) -->
+        <path d="M 270,140 H 422 Q 430,140 430,148 V 222 Q 430,230 438,230 H 450" fill="none" stroke="#4f5d75" stroke-width="1.2"/>
+        <text x="282" y="132" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace">N</text>
+        <text x="432" y="222" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace">N</text>
+        <rect x="350" y="133" width="56" height="14" rx="2" fill="#f5f5f5"/>
+        <text x="378" y="143" fill="#4f5d75" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle">PACKS</text>
+
+        <!-- 3. MontageJob (1) to ReelExport (1) (Straight horizontal, Accent) -->
+        <line x1="670" y1="260" x2="810" y2="260" stroke="#bf4520" stroke-width="1.4"/>
+        <text x="684" y="252" fill="#bf4520" font-size="8" font-family="'Geist Mono', monospace">1</text>
+        <text x="796" y="252" fill="#bf4520" font-size="8" font-family="'Geist Mono', monospace">1</text>
+        <rect x="716" y="253" width="50" height="14" rx="2" fill="#f5f5f5"/>
+        <text x="741" y="263" fill="#bf4520" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle">RENDERS</text>
+
+        <!-- 4. GamePreset (1) to MontageJob (N) (Down + Left Elbow) -->
+        <path d="M 560,150 V 172 Q 560,180 552,180 H 530" fill="none" stroke="#4f5d75" stroke-width="1.2"/>
+        <text x="568" y="162" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace">1</text>
+        <text x="536" y="174" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace">N</text>
+
+        <!-- 5. VibeProfile (1) to MontageJob (N) (Up + Left Elbow) -->
+        <path d="M 560,400 V 378 Q 560,370 552,370 H 530" fill="none" stroke="#4f5d75" stroke-width="1.2"/>
+        <text x="568" y="394" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace">1</text>
+        <text x="536" y="364" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace">N</text>
+
+        <!-- ================= ENTITIES ================= -->
+
+        <!-- Entity 1: SourceClip (SQLite table) -->
+        <rect x="50" y="70" width="220" height="140" rx="6" fill="#f5f5f5"/>
+        <rect x="50" y="70" width="220" height="140" rx="6" fill="#ffffff" stroke="rgba(45,49,66,0.18)" stroke-width="1"/>
+        <!-- Header -->
+        <rect x="58" y="76" width="38" height="12" rx="2" fill="transparent" stroke="rgba(45,49,66,0.3)" stroke-width="0.8"/>
+        <text x="77" y="85" fill="#4f5d75" font-size="6.5" font-family="'Geist Mono', monospace" text-anchor="middle">TABLE</text>
+        <text x="160" y="87" fill="#2d3142" font-size="11.5" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">source_clips</text>
+        <line x1="50" y1="96" x2="270" y2="96" stroke="rgba(45,49,66,0.12)" stroke-width="0.8"/>
+        <!-- Fields -->
+        <text x="64" y="114" fill="#bf4520" font-size="8" font-family="'Geist Mono', monospace"># id: TEXT (UUID)</text>
+        <text x="64" y="130" fill="#2d3142" font-size="8" font-family="'Geist Mono', monospace">  file_path: TEXT</text>
+        <text x="64" y="146" fill="#2d3142" font-size="8" font-family="'Geist Mono', monospace">  duration: REAL (5s–45s)</text>
+        <text x="64" y="162" fill="#2d3142" font-size="8" font-family="'Geist Mono', monospace">  kill_count: INTEGER</text>
+        <text x="64" y="178" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace">  is_verified: BOOLEAN</text>
+        <text x="64" y="194" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace">  scanned_at: TIMESTAMP</text>
+
+        <!-- Entity 2: KillEvent (SQLite table) -->
+        <rect x="50" y="340" width="220" height="130" rx="6" fill="#f5f5f5"/>
+        <rect x="50" y="340" width="220" height="130" rx="6" fill="#ffffff" stroke="rgba(45,49,66,0.18)" stroke-width="1"/>
+        <!-- Header -->
+        <rect x="58" y="346" width="38" height="12" rx="2" fill="transparent" stroke="rgba(45,49,66,0.3)" stroke-width="0.8"/>
+        <text x="77" y="355" fill="#4f5d75" font-size="6.5" font-family="'Geist Mono', monospace" text-anchor="middle">TABLE</text>
+        <text x="160" y="357" fill="#2d3142" font-size="11.5" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">kill_events</text>
+        <line x1="50" y1="366" x2="270" y2="366" stroke="rgba(45,49,66,0.12)" stroke-width="0.8"/>
+        <!-- Fields -->
+        <text x="64" y="384" fill="#bf4520" font-size="8" font-family="'Geist Mono', monospace"># id: INTEGER</text>
+        <text x="64" y="400" fill="#2e5aa8" font-size="8" font-family="'Geist Mono', monospace">→ clip_id: TEXT (FK)</text>
+        <text x="64" y="416" fill="#2d3142" font-size="8" font-family="'Geist Mono', monospace">  timestamp_sec: REAL</text>
+        <text x="64" y="432" fill="#2d3142" font-size="8" font-family="'Geist Mono', monospace">  confidence: REAL</text>
+        <text x="64" y="448" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace">  event_type: TEXT</text>
+
+        <!-- Entity 3: MontageJob [FOCAL / AGGREGATE ROOT] -->
+        <rect x="450" y="190" width="220" height="150" rx="6" fill="#f5f5f5"/>
+        <rect x="450" y="190" width="220" height="150" rx="6" fill="rgba(191,69,32,0.06)" stroke="#bf4520" stroke-width="1.4"/>
+        <!-- Header -->
+        <rect x="458" y="196" width="34" height="12" rx="2" fill="transparent" stroke="#bf4520" stroke-width="0.8"/>
+        <text x="475" y="205" fill="#bf4520" font-size="6.5" font-family="'Geist Mono', monospace" text-anchor="middle">CORE</text>
+        <text x="560" y="207" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">montage_jobs</text>
+        <line x1="450" y1="216" x2="670" y2="216" stroke="rgba(191,69,32,0.2)" stroke-width="0.8"/>
+        <!-- Fields -->
+        <text x="464" y="234" fill="#bf4520" font-size="8" font-family="'Geist Mono', monospace"># id: TEXT (UUID)</text>
+        <text x="464" y="250" fill="#2e5aa8" font-size="8" font-family="'Geist Mono', monospace">→ preset_id: TEXT</text>
+        <text x="464" y="266" fill="#2e5aa8" font-size="8" font-family="'Geist Mono', monospace">→ vibe_id: TEXT</text>
+        <text x="464" y="282" fill="#2d3142" font-size="8" font-family="'Geist Mono', monospace">  target_duration: INTEGER</text>
+        <text x="464" y="298" fill="#2d3142" font-size="8" font-family="'Geist Mono', monospace">  selected_clips: JSON</text>
+        <text x="464" y="314" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace">  status: TEXT (QUEUED/DONE)</text>
+        <text x="464" y="330" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace">  created_at: TIMESTAMP</text>
+
+        <!-- Entity 4: ReelExport (SQLite table) -->
+        <rect x="810" y="190" width="220" height="140" rx="6" fill="#f5f5f5"/>
+        <rect x="810" y="190" width="220" height="140" rx="6" fill="#ffffff" stroke="rgba(45,49,66,0.18)" stroke-width="1"/>
+        <!-- Header -->
+        <rect x="818" y="196" width="38" height="12" rx="2" fill="transparent" stroke="rgba(45,49,66,0.3)" stroke-width="0.8"/>
+        <text x="837" y="205" fill="#4f5d75" font-size="6.5" font-family="'Geist Mono', monospace" text-anchor="middle">TABLE</text>
+        <text x="920" y="207" fill="#2d3142" font-size="11.5" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">reel_exports</text>
+        <line x1="810" y1="216" x2="1030" y2="216" stroke="rgba(45,49,66,0.12)" stroke-width="0.8"/>
+        <!-- Fields -->
+        <text x="824" y="234" fill="#bf4520" font-size="8" font-family="'Geist Mono', monospace"># id: TEXT (UUID)</text>
+        <text x="824" y="250" fill="#2e5aa8" font-size="8" font-family="'Geist Mono', monospace">→ job_id: TEXT (FK)</text>
+        <text x="824" y="266" fill="#2d3142" font-size="8" font-family="'Geist Mono', monospace">  output_path: TEXT</text>
+        <text x="824" y="282" fill="#2d3142" font-size="8" font-family="'Geist Mono', monospace">  actual_duration: REAL</text>
+        <text x="824" y="298" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace">  aspect_ratio: TEXT</text>
+        <text x="824" y="314" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace">  chapters_txt: TEXT</text>
+
+        <!-- Entity 5: GamePreset (JSON File Configuration) -->
+        <rect x="450" y="30" width="220" height="120" rx="6" fill="#f5f5f5"/>
+        <rect x="450" y="30" width="220" height="120" rx="6" fill="#ffffff" stroke="rgba(45,49,66,0.18)" stroke-width="1" stroke-dasharray="4,3"/>
+        <!-- Header -->
+        <rect x="458" y="36" width="46" height="12" rx="2" fill="transparent" stroke="rgba(45,49,66,0.3)" stroke-width="0.8"/>
+        <text x="481" y="45" fill="#4f5d75" font-size="6.5" font-family="'Geist Mono', monospace" text-anchor="middle">PRESET</text>
+        <text x="560" y="47" fill="#2d3142" font-size="11.5" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">presets/*.json</text>
+        <line x1="450" y1="56" x2="670" y2="56" stroke="rgba(45,49,66,0.12)" stroke-width="0.8"/>
+        <!-- Fields -->
+        <text x="464" y="74" fill="#bf4520" font-size="8" font-family="'Geist Mono', monospace"># preset_id: "valorant_1080p"</text>
+        <text x="464" y="90" fill="#2d3142" font-size="8" font-family="'Geist Mono', monospace">  aspect_ratio: "9:16"</text>
+        <text x="464" y="106" fill="#2d3142" font-size="8" font-family="'Geist Mono', monospace">  killfeed_box: [x,y,w,h]</text>
+        <text x="464" y="122" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace">  filter_graph: "crop/overlay"</text>
+
+        <!-- Entity 6: VibeProfile (JSON Configuration / Preset) -->
+        <rect x="450" y="400" width="220" height="120" rx="6" fill="#f5f5f5"/>
+        <rect x="450" y="400" width="220" height="120" rx="6" fill="#ffffff" stroke="rgba(45,49,66,0.18)" stroke-width="1" stroke-dasharray="4,3"/>
+        <!-- Header -->
+        <rect x="458" y="406" width="46" height="12" rx="2" fill="transparent" stroke="rgba(45,49,66,0.3)" stroke-width="0.8"/>
+        <text x="481" y="415" fill="#4f5d75" font-size="6.5" font-family="'Geist Mono', monospace" text-anchor="middle">VIBE</text>
+        <text x="560" y="417" fill="#2d3142" font-size="11.5" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">vibes/*.json</text>
+        <line x1="450" y1="426" x2="670" y2="426" stroke="rgba(45,49,66,0.12)" stroke-width="0.8"/>
+        <!-- Fields -->
+        <text x="464" y="444" fill="#bf4520" font-size="8" font-family="'Geist Mono', monospace"># vibe_id: "hype_montage"</text>
+        <text x="464" y="460" fill="#2d3142" font-size="8" font-family="'Geist Mono', monospace">  ducking_level: "-14dB"</text>
+        <text x="464" y="476" fill="#2d3142" font-size="8" font-family="'Geist Mono', monospace">  fadeout_curve: "exp"</text>
+        <text x="464" y="492" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace">  bgm_track: "hype_beat.mp3"</text>
+
+        <!-- ================= LEGEND STRIP (Horizontal Bottom) ================= -->
+        <line x1="50" y1="560" x2="1030" y2="560" stroke="rgba(45,49,66,0.12)" stroke-width="1"/>
+
+        <!-- Legend Item 1 -->
+        <rect x="60" y="580" width="16" height="12" rx="2" fill="rgba(191,69,32,0.06)" stroke="#bf4520" stroke-width="1.2"/>
+        <text x="84" y="590" fill="#2d3142" font-size="8.5" font-family="'Geist', sans-serif">Central Aggregate Entity</text>
+
+        <!-- Legend Item 2 -->
+        <rect x="250" y="580" width="16" height="12" rx="2" fill="#ffffff" stroke="rgba(45,49,66,0.18)" stroke-width="1"/>
+        <text x="274" y="590" fill="#2d3142" font-size="8.5" font-family="'Geist', sans-serif">SQLite Relational Table</text>
+
+        <!-- Legend Item 3 -->
+        <rect x="440" y="580" width="16" height="12" rx="2" fill="#ffffff" stroke="rgba(45,49,66,0.18)" stroke-width="1" stroke-dasharray="3,2"/>
+        <text x="464" y="590" fill="#2d3142" font-size="8.5" font-family="'Geist', sans-serif">Declarative JSON Preset</text>
+
+        <!-- Legend Item 4 -->
+        <line x1="640" y1="586" x2="666" y2="586" stroke="#4f5d75" stroke-width="1.2"/>
+        <text x="676" y="590" fill="#2d3142" font-size="8.5" font-family="'Geist', sans-serif">Entity Association</text>
+
+      </svg>
+    </div>
+  </div>
+</body>
+</html>

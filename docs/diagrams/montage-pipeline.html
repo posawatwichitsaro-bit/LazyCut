@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LazyCut Montage Assembly Pipeline</title>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper:   #f5f5f5;
+      --color-ink:     #2d3142;
+      --color-muted:   #4f5d75;
+      --color-accent:  #bf4520;
+      --font-sans:     'Geist', system-ui, sans-serif;
+      --font-serif:    'Instrument Serif', Georgia, serif;
+      --font-mono:     'Geist Mono', monospace;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background: var(--color-paper);
+      color: var(--color-ink);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2.5rem 1.5rem;
+    }
+
+    .frame { max-width: 1200px; width: 100%; }
+    .diagram-container { width: 100%; overflow-x: auto; }
+
+    .eyebrow {
+      font-family: var(--font-mono);
+      font-size: 0.68rem;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--color-muted);
+      margin-bottom: 0.5rem;
+    }
+
+    h1 {
+      font-family: var(--font-serif);
+      font-size: clamp(1.6rem, 2.4vw + 0.8rem, 2.2rem);
+      font-weight: 400;
+      letter-spacing: -0.02em;
+      line-height: 1.15;
+      color: var(--color-ink);
+      margin-bottom: 1.5rem;
+    }
+
+    svg { width: 100%; min-width: 1120px; display: block; }
+
+    @media print {
+      .diagram-container { overflow-x: visible; }
+      svg { min-width: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">Pipeline Flow · Clip Transformation</p>
+    <h1>LazyCut Montage Assembly Pipeline</h1>
+
+    <div class="diagram-container">
+      <svg viewBox="0 0 1160 580" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="lazycut-pipe-title lazycut-pipe-desc">
+        <title id="lazycut-pipe-title">LazyCut Montage Assembly Pipeline</title>
+        <desc id="lazycut-pipe-desc">Step-by-step pipeline illustrating how 5 to 45 second raw gaming clips are scanned, trimmed, budgeted, composited, and exported as finished reels.</desc>
+
+        <defs>
+          <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+            <polygon points="0 0, 8 3, 0 6" fill="#4f5d75"/>
+          </marker>
+          <marker id="arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+            <polygon points="0 0, 8 3, 0 6" fill="#bf4520"/>
+          </marker>
+        </defs>
+
+        <!-- Canvas Background -->
+        <rect width="100%" height="100%" fill="#f5f5f5"/>
+
+        <!-- ================= CONNECTORS (Drawn Before Nodes) ================= -->
+
+        <!-- 1. Step 1 -> Step 2 -->
+        <path d="M 190,160 H 222" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+        <rect x="194" y="140" width="24" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="206" y="149" fill="#4f5d75" font-size="6.5" font-family="'Geist Mono', monospace" text-anchor="middle">MP4</text>
+
+        <!-- 2. Step 2 -> Step 3 -->
+        <path d="M 380,160 H 412" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+        <rect x="384" y="140" width="24" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="396" y="149" fill="#4f5d75" font-size="6.5" font-family="'Geist Mono', monospace" text-anchor="middle">KILLS</text>
+
+        <!-- 3. Step 3 -> Step 4 (Accent) -->
+        <path d="M 570,160 H 602" fill="none" stroke="#bf4520" stroke-width="1.4" marker-end="url(#arrow-accent)"/>
+        <rect x="574" y="140" width="24" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="586" y="149" fill="#bf4520" font-size="6.5" font-family="'Geist Mono', monospace" text-anchor="middle">TRIMS</text>
+
+        <!-- 4. Step 4 -> Step 5 (Accent) -->
+        <path d="M 760,160 H 792" fill="none" stroke="#bf4520" stroke-width="1.4" marker-end="url(#arrow-accent)"/>
+        <rect x="764" y="140" width="24" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="776" y="149" fill="#bf4520" font-size="6.5" font-family="'Geist Mono', monospace" text-anchor="middle">QUEUE</text>
+
+        <!-- 5. Step 5 -> Step 6 (Accent) -->
+        <path d="M 950,160 H 982" fill="none" stroke="#bf4520" stroke-width="1.4" marker-end="url(#arrow-accent)"/>
+        <rect x="954" y="140" width="24" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="966" y="149" fill="#bf4520" font-size="6.5" font-family="'Geist Mono', monospace" text-anchor="middle">REEL</text>
+
+        <!-- ================= PIPELINE STAGES (6 Nodes) ================= -->
+
+        <!-- STAGE 1: INGESTION -->
+        <rect x="30" y="100" width="160" height="120" rx="6" fill="#f5f5f5"/>
+        <rect x="30" y="100" width="160" height="120" rx="6" fill="#ffffff" stroke="rgba(45,49,66,0.18)" stroke-width="1"/>
+        <rect x="38" y="108" width="48" height="14" rx="2" fill="transparent" stroke="rgba(45,49,66,0.3)" stroke-width="0.8"/>
+        <text x="62" y="118" fill="#4f5d75" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">STAGE 01</text>
+        <text x="110" y="148" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Folder Ingest</text>
+        <text x="110" y="168" fill="#4f5d75" font-size="8.5" font-family="'Geist Mono', monospace" text-anchor="middle">watchdog scanner</text>
+        <text x="110" y="186" fill="#5a6580" font-size="7.5" font-family="'Geist', sans-serif" text-anchor="middle">Clips 5s–45s in-place</text>
+
+        <!-- STAGE 2: OPENCV DETECTION -->
+        <rect x="220" y="100" width="160" height="120" rx="6" fill="#f5f5f5"/>
+        <rect x="220" y="100" width="160" height="120" rx="6" fill="#ffffff" stroke="rgba(45,49,66,0.18)" stroke-width="1"/>
+        <rect x="228" y="108" width="48" height="14" rx="2" fill="transparent" stroke="rgba(45,49,66,0.3)" stroke-width="0.8"/>
+        <text x="252" y="118" fill="#4f5d75" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">STAGE 02</text>
+        <text x="300" y="148" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Killfeed CV</text>
+        <text x="300" y="168" fill="#4f5d75" font-size="8.5" font-family="'Geist Mono', monospace" text-anchor="middle">skull banner match</text>
+        <text x="300" y="186" fill="#5a6580" font-size="7.5" font-family="'Geist', sans-serif" text-anchor="middle">Exact timestamp & count</text>
+
+        <!-- STAGE 3: ACTION WINDOW (FOCAL 1) -->
+        <rect x="410" y="100" width="160" height="120" rx="6" fill="#f5f5f5"/>
+        <rect x="410" y="100" width="160" height="120" rx="6" fill="rgba(191,69,32,0.06)" stroke="#bf4520" stroke-width="1.4"/>
+        <rect x="418" y="108" width="48" height="14" rx="2" fill="transparent" stroke="#bf4520" stroke-width="0.8"/>
+        <text x="442" y="118" fill="#bf4520" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">STAGE 03</text>
+        <text x="490" y="148" fill="#2d3142" font-size="12.5" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Action Window</text>
+        <text x="490" y="168" fill="#4f5d75" font-size="8.5" font-family="'Geist Mono', monospace" text-anchor="middle">trim & bridge logic</text>
+        <text x="490" y="186" fill="#bf4520" font-size="7.5" font-family="'Geist', sans-serif" text-anchor="middle">-3.0s lead / +1.5s post</text>
+
+        <!-- STAGE 4: BUDGET PACKER -->
+        <rect x="600" y="100" width="160" height="120" rx="6" fill="#f5f5f5"/>
+        <rect x="600" y="100" width="160" height="120" rx="6" fill="#ffffff" stroke="rgba(45,49,66,0.18)" stroke-width="1"/>
+        <rect x="608" y="108" width="48" height="14" rx="2" fill="transparent" stroke="rgba(45,49,66,0.3)" stroke-width="0.8"/>
+        <text x="632" y="118" fill="#4f5d75" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">STAGE 04</text>
+        <text x="680" y="148" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Duration Budget</text>
+        <text x="680" y="168" fill="#4f5d75" font-size="8.5" font-family="'Geist Mono', monospace" text-anchor="middle">priority scoring</text>
+        <text x="680" y="186" fill="#5a6580" font-size="7.5" font-family="'Geist', sans-serif" text-anchor="middle">Max duration cap ≤15m</text>
+
+        <!-- STAGE 5: FFMPEG COMPOSITOR (FOCAL 2) -->
+        <rect x="790" y="100" width="160" height="120" rx="6" fill="#f5f5f5"/>
+        <rect x="790" y="100" width="160" height="120" rx="6" fill="rgba(191,69,32,0.06)" stroke="#bf4520" stroke-width="1.4"/>
+        <rect x="798" y="108" width="48" height="14" rx="2" fill="transparent" stroke="#bf4520" stroke-width="0.8"/>
+        <text x="822" y="118" fill="#bf4520" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">STAGE 05</text>
+        <text x="870" y="148" fill="#2d3142" font-size="12.5" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">FFmpeg Render</text>
+        <text x="870" y="168" fill="#4f5d75" font-size="8.5" font-family="'Geist Mono', monospace" text-anchor="middle">NVENC / AMF 1080p</text>
+        <text x="870" y="186" fill="#bf4520" font-size="7.5" font-family="'Geist', sans-serif" text-anchor="middle">9:16 crop & ducking</text>
+
+        <!-- STAGE 6: LOCAL EXPORT -->
+        <rect x="980" y="100" width="150" height="120" rx="6" fill="#f5f5f5"/>
+        <rect x="980" y="100" width="150" height="120" rx="6" fill="#ffffff" stroke="rgba(45,49,66,0.18)" stroke-width="1"/>
+        <rect x="988" y="108" width="48" height="14" rx="2" fill="transparent" stroke="rgba(45,49,66,0.3)" stroke-width="0.8"/>
+        <text x="1012" y="118" fill="#4f5d75" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">STAGE 06</text>
+        <text x="1055" y="148" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Reel Export</text>
+        <text x="1055" y="168" fill="#4f5d75" font-size="8.5" font-family="'Geist Mono', monospace" text-anchor="middle">local file & txt</text>
+        <text x="1055" y="186" fill="#5a6580" font-size="7.5" font-family="'Geist', sans-serif" text-anchor="middle">Chapters & optional AI</text>
+
+        <!-- ================= DETAIL CARDS (Lower Deck) ================= -->
+
+        <!-- Card A: Action Window Trimming & Bridging -->
+        <rect x="30" y="270" width="540" height="190" rx="6" fill="#ffffff" stroke="rgba(45,49,66,0.12)" stroke-width="1"/>
+        <rect x="42" y="280" width="130" height="14" rx="2" fill="rgba(191,69,32,0.06)"/>
+        <text x="107" y="290" fill="#bf4520" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.1em">RULE 1 · ACTION WINDOW</text>
+        <text x="42" y="318" fill="#2d3142" font-size="13" font-weight="600" font-family="'Geist', sans-serif">Pacing Formula & Kill-Chain Bridge</text>
+        <text x="42" y="340" fill="#4f5d75" font-size="9" font-family="'Geist', sans-serif">Every elimination clip is trimmed to preserve anticipation and satisfaction:</text>
+
+        <!-- Formula visualization -->
+        <rect x="42" y="356" width="130" height="34" rx="4" fill="#f5f5f5" stroke="rgba(45,49,66,0.1)" stroke-width="0.8"/>
+        <text x="107" y="372" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">Lead-in Context</text>
+        <text x="107" y="384" fill="#2d3142" font-size="8.5" font-weight="600" font-family="'Geist Mono', monospace" text-anchor="middle">3.0 Seconds</text>
+
+        <rect x="182" y="356" width="150" height="34" rx="4" fill="rgba(191,69,32,0.08)" stroke="#bf4520" stroke-width="1"/>
+        <text x="257" y="372" fill="#bf4520" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">Kill Event / Skull Banner</text>
+        <text x="257" y="384" fill="#bf4520" font-size="8.5" font-weight="600" font-family="'Geist Mono', monospace" text-anchor="middle">OpenCV Timestamp</text>
+
+        <rect x="342" y="356" width="130" height="34" rx="4" fill="#f5f5f5" stroke="rgba(45,49,66,0.1)" stroke-width="0.8"/>
+        <text x="407" y="372" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">Lead-out Payoff</text>
+        <text x="407" y="384" fill="#2d3142" font-size="8.5" font-weight="600" font-family="'Geist Mono', monospace" text-anchor="middle">1.5 Seconds</text>
+
+        <text x="42" y="414" fill="#5a6580" font-size="8.5" font-family="'Geist', sans-serif">Consecutive kills within 4.0s (multi-kill / spray transfer) expand the window</text>
+        <text x="42" y="428" fill="#5a6580" font-size="8.5" font-family="'Geist', sans-serif">continuously across events without cutting between them.</text>
+        <text x="42" y="445" fill="#5a6580" font-size="8.5" font-family="'Geist', sans-serif">Non-destructive: original capture files in the user folder are never altered.</text>
+
+        <!-- Card B: Audio Ducking & Presets -->
+        <rect x="590" y="270" width="540" height="190" rx="6" fill="#ffffff" stroke="rgba(45,49,66,0.12)" stroke-width="1"/>
+        <rect x="602" y="280" width="130" height="14" rx="2" fill="rgba(46,90,168,0.06)"/>
+        <text x="667" y="290" fill="#2e5aa8" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.1em">RULE 2 · AUDIO DUCKING</text>
+        <text x="602" y="318" fill="#2d3142" font-size="13" font-weight="600" font-family="'Geist', sans-serif">Dynamic Mixing & Dynamic Endings</text>
+        <text x="602" y="340" fill="#4f5d75" font-size="9" font-family="'Geist', sans-serif">Native FFmpeg filter_complex balances game action with background music:</text>
+
+        <!-- Audio details -->
+        <rect x="602" y="356" width="155" height="34" rx="4" fill="#f5f5f5" stroke="rgba(45,49,66,0.1)" stroke-width="0.8"/>
+        <text x="679" y="372" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">sidechaincompress</text>
+        <text x="679" y="384" fill="#2d3142" font-size="8.5" font-weight="600" font-family="'Geist Mono', monospace" text-anchor="middle">-14dB Ducking</text>
+
+        <rect x="767" y="356" width="165" height="34" rx="4" fill="#f5f5f5" stroke="rgba(45,49,66,0.1)" stroke-width="0.8"/>
+        <text x="849" y="372" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">Auto-Looping BGM</text>
+        <text x="849" y="384" fill="#2d3142" font-size="8.5" font-weight="600" font-family="'Geist Mono', monospace" text-anchor="middle">-stream_loop -1</text>
+
+        <rect x="942" y="356" width="170" height="34" rx="4" fill="rgba(46,90,168,0.06)" stroke="#2e5aa8" stroke-width="0.8"/>
+        <text x="1027" y="372" fill="#2e5aa8" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">Dynamic Fade-Out</text>
+        <text x="1027" y="384" fill="#2e5aa8" font-size="8.5" font-weight="600" font-family="'Geist Mono', monospace" text-anchor="middle">Log / Exp / Low-pass</text>
+
+        <text x="602" y="415" fill="#5a6580" font-size="8.5" font-family="'Geist', sans-serif">BGM automatically ducks whenever gunshot or comms audio exceeds threshold.</text>
+        <text x="602" y="432" fill="#5a6580" font-size="8.5" font-family="'Geist', sans-serif">The final 2.0 seconds smoothly transition with the selected ending curve to conclude cleanly.</text>
+
+        <!-- ================= LEGEND STRIP (Horizontal Bottom) ================= -->
+        <line x1="30" y1="490" x2="1130" y2="490" stroke="rgba(45,49,66,0.12)" stroke-width="1"/>
+
+        <!-- Legend Item 1 -->
+        <rect x="40" y="510" width="16" height="12" rx="2" fill="rgba(191,69,32,0.06)" stroke="#bf4520" stroke-width="1.2"/>
+        <text x="64" y="520" fill="#2d3142" font-size="8.5" font-family="'Geist', sans-serif">Focal Pipeline Transformation</text>
+
+        <!-- Legend Item 2 -->
+        <rect x="250" y="510" width="16" height="12" rx="2" fill="#ffffff" stroke="rgba(45,49,66,0.18)" stroke-width="1"/>
+        <text x="274" y="520" fill="#2d3142" font-size="8.5" font-family="'Geist', sans-serif">Standard Pipeline Stage</text>
+
+        <!-- Legend Item 3 -->
+        <line x1="470" y1="516" x2="496" y2="516" stroke="#bf4520" stroke-width="1.4" marker-end="url(#arrow-accent)"/>
+        <text x="506" y="520" fill="#2d3142" font-size="8.5" font-family="'Geist', sans-serif">Action / Render Transition</text>
+
+        <!-- Legend Item 4 -->
+        <line x1="710" y1="516" x2="736" y2="516" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+        <text x="746" y="520" fill="#2d3142" font-size="8.5" font-family="'Geist', sans-serif">Metadata / Event Flow</text>
+
+      </svg>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,77 @@
+{
+  "preset_id": "valorant_1080p",
+  "game_name": "Valorant",
+  "source_resolution": {
+    "width": 1920,
+    "height": 1080
+  },
+  "target_resolution": {
+    "width": 1080,
+    "height": 1920
+  },
+  "regions": {
+    "skull_banner": {
+      "x": 840,
+      "y": 780,
+      "width": 240,
+      "height": 160,
+      "description": "Valorant bottom-center elimination skull banner"
+    },
+    "killfeed": {
+      "x": 1480,
+      "y": 40,
+      "width": 420,
+      "height": 240,
+      "description": "Valorant top-right elimination feed"
+    },
+    "gameplay_center": {
+      "x": 420,
+      "y": 0,
+      "width": 1080,
+      "height": 1080,
+      "description": "Square center action crop around crosshair"
+    }
+  },
+  "vertical_composition": {
+    "background_blur": true,
+    "background_blur_sigma": 20,
+    "layers": [
+      {
+        "name": "blurred_background",
+        "type": "background_fill",
+        "scale_mode": "cover"
+      },
+      {
+        "name": "center_gameplay",
+        "type": "region_crop",
+        "source_region": "gameplay_center",
+        "placement": {
+          "x": 0,
+          "y": 420,
+          "width": 1080,
+          "height": 1080
+        }
+      },
+      {
+        "name": "killfeed_overlay",
+        "type": "region_crop",
+        "source_region": "killfeed",
+        "placement": {
+          "x": 330,
+          "y": 120,
+          "width": 420,
+          "height": 240
+        },
+        "border_radius": 8
+      }
+    ]
+  },
+  "detection_config": {
+    "banner_red_lower": [0, 130, 130],
+    "banner_red_upper": [10, 255, 255],
+    "banner_yellow_lower": [15, 150, 150],
+    "banner_yellow_upper": [35, 255, 255],
+    "min_kill_pixel_density": 0.08,
+    "min_event_confidence": 0.75
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "vibe_id": "hype_montage",
+  "name": "Hype Montage",
+  "description": "Fast-paced action cuts with dynamic BGM ducking and high-impact ending.",
+  "audio_ducking": {
+    "enabled": true,
+    "ducking_level_db": -14.0,
+    "attack_ms": 20,
+    "release_ms": 300,
+    "threshold": 0.08
+  },
+  "action_window": {
+    "lead_in_seconds": 3.0,
+    "lead_out_seconds": 1.5,
+    "kill_chain_bridge_threshold_seconds": 4.0
+  },
+  "fadeout_style": "exp",
+  "fadeout_duration_seconds": 2.0,
+  "bgm_loop": true,
+  "default_bgm_track": null
+}

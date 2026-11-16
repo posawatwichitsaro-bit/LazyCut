@@ -1,0 +1,21 @@
+{
+  "vibe_id": "raw_clean",
+  "name": "Raw Clean",
+  "description": "Pure in-game audio without BGM, focused on clean kills and audio fidelity.",
+  "audio_ducking": {
+    "enabled": false,
+    "ducking_level_db": 0.0,
+    "attack_ms": 0,
+    "release_ms": 0,
+    "threshold": 0.0
+  },
+  "action_window": {
+    "lead_in_seconds": 3.0,
+    "lead_out_seconds": 2.0,
+    "kill_chain_bridge_threshold_seconds": 4.0
+  },
+  "fadeout_style": "linear",
+  "fadeout_duration_seconds": 1.0,
+  "bgm_loop": false,
+  "default_bgm_track": null
+}
