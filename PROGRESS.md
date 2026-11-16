@@ -29,12 +29,13 @@ Phase 1: MVP Core Engine (95% Completed)
   ├── Automated Test Suite (pytest) ─────────────────────── [x] Completed (9/9 passed)
   └── Windows start.bat Bootstrap ───────────────────────── [x] Completed
 
-Phase 2: Local Web Dashboard & UI Integration
-  ├── FastAPI Static SPA Server & API Routes ────────────── [/] Basic UI Mounted / React in progress
-  ├── Studio Feed View (Import & Verified Kill Badges) ──── [ ] Pending
-  ├── Reel Inspector View (Video Player & Download) ─────── [ ] Pending
-  ├── Settings View (Watch Path, Presets, Guard) ────────── [ ] Pending
-  └── Optional AI Router (LiteLLM / Ollama + Zero-AI) ───── [ ] Pending
+Phase 2: Local Web Dashboard & UI Integration (45% Completed)
+  ├── FastAPI Static SPA Server & API Routes ────────────── [x] Completed
+  ├── Metadata Engine & Zero-AI YouTube Chapters (P2-01) ── [x] Completed
+  ├── Studio Feed Query Filters (kills, duration) (P2-02) ── [x] Completed
+  ├── Reel Inspector View (Video Player & Download) ─────── [/] Mounted in Fallback UI
+  ├── Settings View (Watch Path, Presets, Guard) ────────── [x] Completed
+  └── Optional AI Router (LiteLLM / Ollama + Zero-AI) ───── [/] In Progress
 
 Phase 3: Community Presets & Auto-Publish
   ├── JSON Preset Builder & Community Sharing ───────────── [ ] Pending
@@ -65,6 +66,7 @@ Phase 4: Open-Source Release & Packaging
 | **P1-10** | **Bootstrap** | Windows `start.bat` script with auto-venv, dependency check, and browser opener | `DONE` |
 | **P1-11** | **Test Suite** | Unit tests for safety, detection, filter graph, and models (9/9 passed) | `DONE` |
 | **P2-01** | **Metadata Engine** | `ReelMetadataEngine` with Zero-AI Fallback, tags, and YouTube chapters (TDD passed) | `DONE` |
+| **P2-02** | **Clips Filtering API** | `GET /api/clips` query filtering by kills, duration range, and verification status (TDD passed) | `DONE` |
 
 ---
 
