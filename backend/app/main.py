@@ -70,7 +70,7 @@ STUDIO_DASHBOARD_HTML = """<!DOCTYPE html>
       --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     }
     body { font-family: var(--font); background: var(--bg-dark); color: var(--text-main); min-height: 100vh; padding: 1.5rem; }
-    .container { max-width: 1200px; margin: 0 auto; }
+    .container { max-width: 1400px; margin: 0 auto; }
     
     /* Header */
     header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; border-bottom: 1px solid var(--card-border); padding-bottom: 1rem; }
@@ -89,11 +89,11 @@ STUDIO_DASHBOARD_HTML = """<!DOCTYPE html>
 
     /* Cards */
     .card { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 10px; padding: 1.5rem; margin-bottom: 1.5rem; }
-    .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+    .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem; }
     .card-title { font-size: 1.2rem; font-weight: 600; color: var(--text-main); }
 
     /* Buttons & Controls */
-    .btn { background: var(--accent); color: white; border: none; padding: 0.6rem 1.2rem; border-radius: 6px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 0.5rem; transition: background 0.2s; }
+    .btn { background: var(--accent); color: white; border: none; padding: 0.6rem 1.2rem; border-radius: 6px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 0.5rem; transition: background 0.2s; font-size: 0.9rem; }
     .btn:hover { background: var(--accent-hover); }
     .btn-secondary { background: #374151; color: var(--text-main); }
     .btn-secondary:hover { background: #4b5563; }
@@ -103,25 +103,46 @@ STUDIO_DASHBOARD_HTML = """<!DOCTYPE html>
     input[type="text"]:focus, select:focus { outline: none; border-color: var(--accent); }
 
     /* Filter Pills */
-    .filter-pills { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
+    .filter-pills { display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap; align-items: center; }
     .pill { padding: 0.35rem 0.75rem; border-radius: 9999px; font-size: 0.8rem; cursor: pointer; background: #1f2937; color: var(--text-muted); border: 1px solid transparent; }
     .pill.active { background: var(--accent); color: white; font-weight: 600; }
 
-    /* Tables */
-    table { width: 100%; border-collapse: collapse; }
-    th, td { text-align: left; padding: 0.75rem 1rem; border-bottom: 1px solid var(--card-border); }
-    th { color: var(--text-muted); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; }
-    tr:hover td { background: rgba(255, 255, 255, 0.02); }
-    .badge-kill { background: rgba(239, 68, 68, 0.15); border: 1px solid var(--danger); color: #f87171; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.8rem; font-weight: 600; }
-    .badge-ok { background: rgba(16, 185, 129, 0.15); border: 1px solid var(--success); color: #34d399; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.8rem; font-weight: 600; }
+    /* Clip Grid */
+    .clip-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1rem; }
+    .clip-card { background: #0d1117; border: 2px solid var(--card-border); border-radius: 10px; overflow: hidden; cursor: pointer; transition: border-color 0.2s, transform 0.15s; position: relative; }
+    .clip-card:hover { border-color: #374151; transform: translateY(-2px); }
+    .clip-card.selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+    .clip-card .thumb { width: 100%; height: 150px; object-fit: cover; display: block; background: #000; }
+    .clip-card .thumb-placeholder { width: 100%; height: 150px; display: flex; align-items: center; justify-content: center; background: #1a1a2e; color: var(--text-muted); font-size: 2rem; }
+    .clip-card .info { padding: 0.75rem; }
+    .clip-card .info .name { font-weight: 600; font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 0.35rem; }
+    .clip-card .info .meta { display: flex; justify-content: space-between; align-items: center; font-size: 0.78rem; color: var(--text-muted); }
+    .clip-card .select-check { position: absolute; top: 8px; left: 8px; width: 22px; height: 22px; accent-color: var(--accent); cursor: pointer; }
+    .badge-kill { background: rgba(239, 68, 68, 0.15); border: 1px solid var(--danger); color: #f87171; padding: 0.15rem 0.45rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600; }
+    .badge-ok { background: rgba(16, 185, 129, 0.15); border: 1px solid var(--success); color: #34d399; padding: 0.15rem 0.45rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600; }
+    .badge-zero { color: var(--text-muted); font-size: 0.75rem; }
 
     /* Floating Action Bar */
-    .action-bar { position: sticky; bottom: 1.5rem; background: #1f2937; border: 1px solid #374151; border-radius: 10px; padding: 1rem 1.5rem; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5); }
+    .action-bar { position: sticky; bottom: 1.5rem; background: #1f2937; border: 1px solid #374151; border-radius: 10px; padding: 1rem 1.5rem; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5); flex-wrap: wrap; gap: 0.75rem; z-index: 10; }
 
     /* Video Player & Inspector */
     .video-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
     video { width: 100%; max-height: 480px; border-radius: 8px; background: black; border: 1px solid var(--card-border); }
     .pre-box { background: #0b0f19; border: 1px solid var(--card-border); padding: 1rem; border-radius: 6px; font-family: monospace; font-size: 0.85rem; color: #a7f3d0; white-space: pre-wrap; max-height: 240px; overflow-y: auto; }
+
+    /* Preview Modal */
+    .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.85); z-index: 100; justify-content: center; align-items: center; }
+    .modal-overlay.active { display: flex; }
+    .modal-content { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 12px; padding: 1.5rem; max-width: 720px; width: 90%; max-height: 90vh; overflow-y: auto; }
+    .modal-content video { width: 100%; max-height: 380px; border-radius: 8px; margin-bottom: 1rem; }
+    .modal-close { float: right; background: none; border: none; color: var(--text-muted); font-size: 1.5rem; cursor: pointer; }
+    .modal-close:hover { color: var(--text-main); }
+
+    @media (max-width: 768px) {
+      .clip-grid { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+      .video-grid { grid-template-columns: 1fr; }
+      .action-bar { flex-direction: column; align-items: stretch; }
+    }
   </style>
 </head>
 <body>
@@ -131,7 +152,7 @@ STUDIO_DASHBOARD_HTML = """<!DOCTYPE html>
         <span style="font-size: 2rem;">🎬</span>
         <div>
           <h1>LazyCut Studio</h1>
-          <p style="font-size: 0.8rem; color: var(--text-muted);">Open-Source AI Video Automation Engine</p>
+          <p style="font-size: 0.8rem; color: var(--text-muted);">AI Highlight & Montage Studio</p>
         </div>
       </div>
       <div class="header-badges">
@@ -142,63 +163,53 @@ STUDIO_DASHBOARD_HTML = """<!DOCTYPE html>
 
     <!-- 3 Core Navigation Tabs -->
     <nav class="nav-tabs">
-      <button class="tab-btn active" onclick="switchTab('feed')">Studio Feed</button>
+      <button class="tab-btn active" onclick="switchTab('feed')">Studio Feed (Clip Picker)</button>
       <button class="tab-btn" onclick="switchTab('inspector')">Reel Inspector</button>
       <button class="tab-btn" onclick="switchTab('settings')">Settings</button>
     </nav>
 
-    <!-- SCREEN 1: STUDIO FEED -->
+    <!-- SCREEN 1: CLIP PICKER GRID -->
     <section id="tab-feed">
       <div class="card">
         <div class="card-header">
           <span class="card-title">Source Clips Library</span>
-          <div style="display: flex; gap: 0.5rem;">
-            <input type="text" id="manualImportInput" placeholder="Import path (e.g. D:\\clip.mp4)" style="width: 280px;" />
-            <button class="btn btn-secondary" onclick="importManualClip()">Import</button>
-            <button class="btn btn-outline" onclick="loadClips()">Refresh</button>
+          <div style="display: flex; gap: 0.5rem; align-items: center;">
+            <button class="btn btn-outline" style="font-size: 0.8rem;" onclick="rescanFolder()">🔄 Rescan Folder</button>
+            <button class="btn btn-outline" style="font-size: 0.8rem;" onclick="loadClips()">Refresh</button>
           </div>
         </div>
 
         <!-- Filter Pills -->
-        <div class="filter-pills" id="filterPills" style="display: flex; align-items: center; gap: 0.5rem;">
+        <div class="filter-pills" id="filterPills">
           <button class="pill active" onclick="filterClips('all', this)">All Clips</button>
-          <button class="pill" onclick="filterClips('kills', this)">🎯 Has Kills Only</button>
-          <button class="pill" onclick="filterClips('duration', this)">⏱️ 5s–45s Only</button>
-          <button class="pill" onclick="filterClips('verified', this)">Verified</button>
-          <button class="btn btn-outline" style="font-size: 0.75rem; padding: 0.25rem 0.6rem; margin-left: auto;" onclick="rescanFolder()">🔄 Rescan Folder</button>
+          <button class="pill" onclick="filterClips('kills', this)">🎯 Has Kills</button>
+          <button class="pill" onclick="filterClips('verified', this)">✅ Verified</button>
+          <span id="clipCountLabel" style="margin-left: auto; font-size: 0.8rem; color: var(--text-muted);">0 clips</span>
         </div>
 
-        <table>
-          <thead>
-            <tr>
-              <th style="width: 40px;"><input type="checkbox" id="selectAllCb" onclick="toggleSelectAll()" /></th>
-              <th>File Name</th>
-              <th>Duration</th>
-              <th>Killfeed Status</th>
-              <th>Verification</th>
-            </tr>
-          </thead>
-          <tbody id="clipsTbody">
-            <tr><td colspan="5" style="color: var(--text-muted); text-align: center; padding: 2rem;">Loading source clips...</td></tr>
-          </tbody>
-        </table>
+        <!-- Clip Grid -->
+        <div class="clip-grid" id="clipGrid">
+          <div style="grid-column: 1/-1; text-align: center; padding: 3rem; color: var(--text-muted);">Loading clips...</div>
+        </div>
       </div>
 
       <!-- Action Generation Bar -->
       <div class="action-bar">
         <div style="display: flex; align-items: center; gap: 1rem;">
           <span id="selectionCounter" style="font-weight: 600;">0 clips selected</span>
-          <button class="btn btn-outline" style="font-size: 0.8rem;" onclick="selectKillsOnly()">Select All with Kills</button>
+          <button class="btn btn-outline" style="font-size: 0.8rem;" onclick="selectAll()">Select All</button>
+          <button class="btn btn-outline" style="font-size: 0.8rem;" onclick="selectKillsOnly()">Select Kills Only</button>
+          <button class="btn btn-outline" style="font-size: 0.8rem;" onclick="deselectAll()">Clear</button>
         </div>
         <div style="display: flex; gap: 0.75rem; align-items: center;">
-          <select id="vibeSelect">
-            <option value="hype_montage">Hype Montage (Fast & Dynamic)</option>
-            <option value="chill_memory">Chill Memory (Cinematic)</option>
-            <option value="raw_clean">Raw Clean (Game Audio Only)</option>
-          </select>
           <select id="formatSelect">
-            <option value="16:9">16:9 Cinema Montage (Full Screen)</option>
-            <option value="9:16">9:16 Vertical Short (TikTok/Reels)</option>
+            <option value="16:9">16:9 Cinema Montage</option>
+            <option value="9:16">9:16 Vertical Short</option>
+          </select>
+          <select id="vibeSelect">
+            <option value="hype_montage">Hype Montage</option>
+            <option value="chill_memory">Chill Memory</option>
+            <option value="raw_clean">Raw Clean</option>
           </select>
           <button class="btn" onclick="startMontage()">⚡ Generate Montage</button>
         </div>
@@ -267,11 +278,22 @@ STUDIO_DASHBOARD_HTML = """<!DOCTYPE html>
       </div>
     </section>
 
+    <!-- Preview Modal -->
+    <div class="modal-overlay" id="previewModal" onclick="closePreview(event)">
+      <div class="modal-content" onclick="event.stopPropagation()">
+        <button class="modal-close" onclick="closePreview()">&times;</button>
+        <video id="previewPlayer" controls></video>
+        <h3 id="previewName" style="margin-bottom: 0.5rem;"></h3>
+        <div id="previewMeta" style="font-size: 0.85rem; color: var(--text-muted);"></div>
+        <div id="previewAnalysis" style="margin-top: 1rem;"></div>
+      </div>
+    </div>
   </div>
 
   <script>
     let currentFilter = 'all';
     let allClips = [];
+    let selectedIds = new Set();
 
     function switchTab(tabName) {
       document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
@@ -319,31 +341,71 @@ STUDIO_DASHBOARD_HTML = """<!DOCTYPE html>
     async function loadClips() {
       let url = '/api/clips';
       if (currentFilter === 'kills') url += '?has_kills=true';
-      if (currentFilter === 'duration') url += '?min_duration=5.0&max_duration=45.0';
       if (currentFilter === 'verified') url += '?is_verified=true';
 
       const res = await fetch(url);
       allClips = await res.json();
-      renderClips();
+      document.getElementById('clipCountLabel').innerText = `${allClips.length} clips`;
+      renderClipGrid();
     }
 
-    function renderClips() {
-      const tbody = document.getElementById('clipsTbody');
+    function renderClipGrid() {
+      const grid = document.getElementById('clipGrid');
       if (allClips.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" style="color: var(--text-muted); text-align: center; padding: 2rem;">No source clips found matching criteria.</td></tr>';
+        grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 3rem; color: var(--text-muted);">No clips found. Configure watch path in Settings, then click Rescan Folder.</div>';
         updateSelectionCount();
         return;
       }
-      tbody.innerHTML = allClips.map(c => `
-        <tr>
-          <td><input type="checkbox" class="clip-cb" value="${c.id}" ${c.kill_count > 0 ? 'data-has-kill="1"' : ''} onchange="updateSelectionCount()" /></td>
-          <td style="font-weight: 500;">${c.file_name}</td>
-          <td>${c.duration.toFixed(1)}s</td>
-          <td>${c.kill_count > 0 ? `<span class="badge-kill">🎯 ${c.kill_count} Kill${c.kill_count > 1 ? 's' : ''}</span>` : '<span style="color:var(--text-muted);">0 Kills</span>'}</td>
-          <td>${c.is_verified ? '<span class="badge-ok">Verified</span>' : '<span style="color:var(--text-muted);">Unverified</span>'}</td>
-        </tr>
-      `).join('');
+      grid.innerHTML = allClips.map(c => {
+        const isSelected = selectedIds.has(c.id);
+        const killBadge = c.kill_count > 0
+          ? `<span class="badge-kill">🎯 ${c.kill_count} Kill${c.kill_count > 1 ? 's' : ''}</span>`
+          : '<span class="badge-zero">0 Kills</span>';
+        return `
+          <div class="clip-card ${isSelected ? 'selected' : ''}" data-id="${c.id}" onclick="toggleClipSelect('${c.id}')">
+            <input type="checkbox" class="select-check" ${isSelected ? 'checked' : ''} onclick="event.stopPropagation(); toggleClipSelect('${c.id}')" />
+            <img class="thumb" src="/api/clips/${c.id}/thumbnail" alt="${c.file_name}" loading="lazy" onerror="this.outerHTML='<div class=\\'thumb-placeholder\\'>🎮</div>'" />
+            <div class="info">
+              <div class="name" title="${c.file_name}">${c.file_name}</div>
+              <div class="meta">
+                <span>${c.duration.toFixed(1)}s</span>
+                ${killBadge}
+                <button class="btn btn-outline" style="font-size: 0.7rem; padding: 0.15rem 0.4rem;" onclick="event.stopPropagation(); openPreview('${c.id}')">▶ Preview</button>
+              </div>
+            </div>
+          </div>`;
+      }).join('');
       updateSelectionCount();
+    }
+
+    function toggleClipSelect(id) {
+      if (selectedIds.has(id)) {
+        selectedIds.delete(id);
+      } else {
+        selectedIds.add(id);
+      }
+      renderClipGrid();
+    }
+
+    function selectAll() {
+      allClips.forEach(c => selectedIds.add(c.id));
+      renderClipGrid();
+    }
+
+    function selectKillsOnly() {
+      selectedIds.clear();
+      allClips.filter(c => c.kill_count > 0).forEach(c => selectedIds.add(c.id));
+      renderClipGrid();
+    }
+
+    function deselectAll() {
+      selectedIds.clear();
+      renderClipGrid();
+    }
+
+    function updateSelectionCount() {
+      const count = selectedIds.size;
+      document.getElementById('selectionCounter').innerText = `${count} clip${count !== 1 ? 's' : ''} selected`;
     }
 
     function filterClips(filterType, el) {
@@ -353,58 +415,67 @@ STUDIO_DASHBOARD_HTML = """<!DOCTYPE html>
       loadClips();
     }
 
-    function toggleSelectAll() {
-      const master = document.getElementById('selectAllCb').checked;
-      document.querySelectorAll('.clip-cb').forEach(cb => cb.checked = master);
-      updateSelectionCount();
+    async function openPreview(clipId) {
+      const clip = allClips.find(c => c.id === clipId);
+      if (!clip) return;
+      const modal = document.getElementById('previewModal');
+      const player = document.getElementById('previewPlayer');
+      document.getElementById('previewName').innerText = clip.file_name;
+      document.getElementById('previewMeta').innerText = `Duration: ${clip.duration.toFixed(1)}s | Kills: ${clip.kill_count} | ${clip.is_verified ? 'Verified' : 'Unverified'}`;
+      
+      // Load analysis
+      document.getElementById('previewAnalysis').innerHTML = '<p style="color: var(--text-muted);">Analyzing highlights...</p>';
+      
+      // Set video source - use file path directly is not possible from browser,
+      // so we show thumbnail info and analysis data
+      player.src = `/api/clips/${clipId}/thumbnail`;
+      player.poster = `/api/clips/${clipId}/thumbnail`;
+      player.removeAttribute('src');
+      
+      modal.classList.add('active');
+
+      try {
+        const res = await fetch(`/api/clips/${clipId}/analyze`);
+        const data = await res.json();
+        let html = '';
+        if (data.has_highlights) {
+          html += `<div style="margin-bottom: 0.5rem;"><span class="badge-ok">✅ ${data.moments.length} combat moment${data.moments.length > 1 ? 's' : ''} detected</span></div>`;
+          html += `<div style="font-size: 0.82rem; color: var(--text-muted);">Score: ${data.total_score.toFixed(0)} | Action Windows: ${data.action_windows.map(w => w[0].toFixed(1) + 's–' + w[1].toFixed(1) + 's').join(', ')}</div>`;
+          html += '<ul style="margin-top: 0.5rem; font-size: 0.82rem; list-style: none;">';
+          data.moments.forEach(m => {
+            html += `<li style="padding: 0.2rem 0;">⏱ ${m.timestamp.toFixed(1)}s — ${m.kill_count} kill${m.kill_count > 1 ? 's' : ''}${m.is_headshot ? ' 🎯 Headshot' : ''} (energy: ${m.audio_energy.toFixed(0)})</li>`;
+          });
+          html += '</ul>';
+        } else {
+          html = '<p style="color: var(--text-muted);">No combat highlights detected in this clip.</p>';
+        }
+        document.getElementById('previewAnalysis').innerHTML = html;
+        // Reload clip list to pick up updated kill counts
+        loadClips();
+      } catch (e) {
+        document.getElementById('previewAnalysis').innerHTML = '<p style="color: var(--danger);">Analysis failed.</p>';
+      }
     }
 
-    function selectKillsOnly() {
-      document.querySelectorAll('.clip-cb').forEach(cb => {
-        cb.checked = cb.dataset.hasKill === '1';
-      });
-      updateSelectionCount();
-    }
-
-    function updateSelectionCount() {
-      const count = document.querySelectorAll('.clip-cb:checked').length;
-      document.getElementById('selectionCounter').innerText = `${count} clip${count !== 1 ? 's' : ''} selected`;
+    function closePreview(e) {
+      if (e && e.target !== document.getElementById('previewModal')) return;
+      document.getElementById('previewModal').classList.remove('active');
+      document.getElementById('previewPlayer').pause();
     }
 
     async function rescanFolder() {
       try {
         const res = await fetch('/api/clips/scan', { method: 'POST' });
         const data = await res.json();
-        alert(`Scanned library: Discovered ${data.total_clips} clips in folder!`);
+        alert(`Scanned: ${data.total_clips} clips in library!`);
         loadClips();
       } catch (e) {
         alert('Scan error: ' + e);
       }
     }
 
-    async function importManualClip() {
-      const path = document.getElementById('manualImportInput').value.trim();
-      if (!path) return;
-      try {
-        const res = await fetch('/api/clips/import', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ file_path: path })
-        });
-        if (res.ok) {
-          alert('Clip imported successfully!');
-          document.getElementById('manualImportInput').value = '';
-          loadClips();
-        } else {
-          alert('Could not import clip. Check file path.');
-        }
-      } catch (e) {
-        alert('Import error: ' + e);
-      }
-    }
-
     async function startMontage() {
-      const selected = Array.from(document.querySelectorAll('.clip-cb:checked')).map(cb => cb.value);
+      const selected = Array.from(selectedIds);
       if (selected.length === 0) {
         alert('Please select at least one clip!');
         return;
@@ -415,7 +486,7 @@ STUDIO_DASHBOARD_HTML = """<!DOCTYPE html>
       const res = await fetch('/api/jobs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clip_ids: selected, vibe_id: vibe, output_format: fmt, target_duration: 60 })
+        body: JSON.stringify({ clip_ids: selected, vibe_id: vibe, output_format: fmt, target_duration: 120 })
       });
       const job = await res.json();
       switchTab('inspector');

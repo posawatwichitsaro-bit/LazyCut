@@ -91,8 +91,8 @@ class HighlightCurator:
         self,
         moments: list[CombatMoment],
         total_duration: float,
-        lead_in: float = 2.0,
-        lead_out: float = 1.2,
+        lead_in: float = 5.0,
+        lead_out: float = 2.0,
         bridge_threshold: float = 4.0
     ) -> list[tuple[float, float]]:
         """
@@ -163,8 +163,8 @@ class HighlightCurator:
     def curate_clip(
         self,
         video_path: Path,
-        lead_in: float = 2.5,
-        lead_out: float = 1.2
+        lead_in: float = 5.0,
+        lead_out: float = 2.0
     ) -> CuratedHighlight:
         """
         Scans a video file, combining audio combat energy with kill visual cues.

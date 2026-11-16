@@ -94,3 +94,12 @@ def test_list_clips_filter_verified_kills_within_duration(client: TestClient):
     data = response.json()
     assert len(data) == 1
     assert data[0]["file_name"] == "triple_kill.mp4"
+
+def test_clip_thumbnail_404_when_clip_not_found(client: TestClient):
+    response = client.get("/api/clips/nonexistent-id/thumbnail")
+    assert response.status_code == 404
+
+def test_clip_analyze_404_when_clip_not_found(client: TestClient):
+    response = client.get("/api/clips/nonexistent-id/analyze")
+    assert response.status_code == 404
+

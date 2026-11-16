@@ -178,19 +178,37 @@ class AIMontageDirector:
         for idx, cut in enumerate(chrono_cuts):
             is_last = (idx == len(chrono_cuts) - 1)
             # Give multi-kill climax moments 1.25x pacing weight
-            pacing_weight = 1.3 if (cut.kills >= 2 or is_last) else 0.9
-            desired_dur = max(2.0, min(cut.raw_duration, cut.raw_duration * scale_factor * pacing_weight))
+            pacing_weight = 1.25 if (cut.kills >= 2 or is_last) else 0.95
+            desired_dur = min(cut.raw_duration, max(1.0, cut.raw_duration * scale_factor * pacing_weight))
 
-            if accumulated + desired_dur > target_budget and optimized:
-                # Clamp to remaining budget
-                desired_dur = max(1.5, target_budget - accumulated)
+            if accumulated + desired_dur > target_budget:
+                remaining = target_budget - accumulated
+                if remaining < 0.8:
+                    if not optimized:
+                        desired_dur = max(0.5, target_budget)
+                    else:
+                        break
+                else:
+                    desired_dur = remaining
 
-            # Center the cut around the peak combat action
-            midpoint = (cut.raw_start + cut.raw_end) / 2.0
-            opt_start = max(0.0, midpoint - (desired_dur * 0.55))
-            opt_end = opt_start + desired_dur
+            # Preserve the contextual setup (peek) and aftermath (confirmation)
+            if desired_dur >= cut.raw_duration:
+                opt_start = cut.raw_start
+                opt_end = cut.raw_end
+            else:
+                # Give 60% of duration to setup & kill, 40% to aftermath
+                midpoint = (cut.raw_start + cut.raw_end) / 2.0
+                opt_start = max(cut.raw_start, midpoint - (desired_dur * 0.60))
+                opt_end = opt_start + desired_dur
 
-            transition = "cut" if (cut.kills >= 2 or is_last) else "crossfade"
+            # Diverse transition design: punchy cuts for multi-kills, smooth crossfades for round breaks
+            if cut.kills >= 2 or is_last:
+                transition = "cut"
+            elif idx % 2 == 1:
+                transition = "crossfade"
+            else:
+                transition = "cut"
+
             kills_label = f"({cut.kills} Kills)" if cut.kills > 0 else "(Highlight)"
             title = f"Clip {idx + 1} {kills_label}"
 
@@ -237,7 +255,8 @@ class AIMontageDirector:
             prompt = (
                 f"You are an expert esports montage director. Given candidate gameplay cuts in chronological order:\n"
                 f"{json.dumps(cuts_meta)}\n"
-                f"Optimize the cuts to fit within {target_budget} seconds budget with high-energy pacing towards climax.\n"
+                f"Optimize each cut to fit within {target_budget}s total budget. Ensure each cut has clear narrative context (approach/peek setup, kill moment, confirmation). "
+                f"Design varied in/out pacing (punchy for multi-kills, cinematic for openers) and build hype towards the climax.\n"
                 f"Respond with JSON format: {{\"cuts\": [ {{\"clip_id\": str, \"start\": float, \"end\": float, \"transition\": \"cut\"|\"crossfade\", \"title\": str}} ] }}"
             )
 

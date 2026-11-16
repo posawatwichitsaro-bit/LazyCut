@@ -73,7 +73,7 @@ def test_curate_real_user_valorant_clip():
     assert len(result.action_windows) >= 1
     # The double headshot is around 38.5s - 45.0s
     highlight_start, highlight_end = result.action_windows[0]
-    assert 36.0 <= highlight_start <= 41.0
-    assert 42.0 <= highlight_end <= 46.0
+    assert 34.0 <= highlight_start <= 41.0
+    assert 42.0 <= highlight_end <= 48.0
     # Must completely discard spawn walking (0 to 30s)
     assert highlight_start > 30.0

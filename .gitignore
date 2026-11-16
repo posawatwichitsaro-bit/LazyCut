@@ -37,6 +37,7 @@ exports/*.mp4
 exports/*.mkv
 exports/*.avi
 exports/*.txt
+exports/thumbnails/
 !exports/.gitkeep
 music/*.mp3
 music/*.wav

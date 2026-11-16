@@ -129,3 +129,9 @@ Phase 5: AI Highlight Curation & Montage Studio (100% Completed)
     - **Aspect Ratios**: Supported full 16:9 Cinema widescreen montage without cropping alongside 9:16 Shorts.
     - **Library Scan**: Added automatic startup and on-demand rescan discovering all 87 clips in `D:\Clips\Valorant`.
     - **Test Coverage**: 44/44 unit & integration tests passing (100%).
+  - **Clip Picker UI & Contextual Action Window Upgrade**:
+    - **Interactive Clip Picker Grid**: Replaced tabular view with modern responsive card grid featuring video thumbnail previews, checkboxes, kill count badges, and modal inspector with kill breakdown.
+    - **Thumbnail Engine**: Implemented `GET /api/clips/{id}/thumbnail` using on-demand FFmpeg frame extraction with local disk caching in `exports/thumbnails/`.
+    - **Contextual Action Window**: Expanded action trimming from 3.5s to 7.0–8.0s ($T_{kill}-5.0s$ to $T_{kill}+2.0s$) ensuring clear narrative setup (peek/approach), the kill event, and confirmation aftermath.
+    - **Pacing & In/Out Optimization**: Upgraded `AIMontageDirector` with contextual setup preservation and dynamic transition diversity (punchy cuts for multi-kills, crossfades for round transitions).
+    - **Test Suite**: 46/46 unit & integration tests passing with 100% success rate.
