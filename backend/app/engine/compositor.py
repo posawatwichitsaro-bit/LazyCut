@@ -153,14 +153,14 @@ class MontageCompositor:
             if proc.returncode != 0:
                 raise RuntimeError(f"FFmpeg encoding failed: {proc.stderr[-500:]}")
 
-            # 7. Generate Publication Metadata & Chapters via MetadataEngine
-            from backend.app.engine.metadata_engine import ReelMetadataEngine
-            meta_engine = ReelMetadataEngine()
-            meta = meta_engine.generate_metadata(job=job, clips=packed_clips)
+            # 7. Generate Creative Metadata & Chapters via AIRouter
+            from backend.app.engine.ai_router import AIRouter
+            ai_router = AIRouter(provider="none")  # Extensible with settings.ai_provider
+            ai_meta = ai_router.generate(job=job, clips=packed_clips)
 
             chapters_path = settings.exports_dir / f"chapters_{timestamp_str}_{job.id[:8]}.txt"
             with open(chapters_path, "w", encoding="utf-8") as f:
-                f.write(meta.chapters_txt)
+                f.write(ai_meta.chapters_txt)
 
             # 8. Create ReelExport Record
             export = ReelExport(
@@ -168,9 +168,9 @@ class MontageCompositor:
                 output_path=str(output_path),
                 actual_duration=round(accumulated_duration, 2),
                 aspect_ratio=output_format,
-                chapters_txt=meta.chapters_txt,
-                ai_title=meta.title,
-                ai_description=meta.description
+                chapters_txt=ai_meta.chapters_txt,
+                ai_title=ai_meta.title,
+                ai_description=ai_meta.description
             )
             self.session.add(export)
 
