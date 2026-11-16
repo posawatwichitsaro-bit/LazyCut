@@ -24,6 +24,9 @@ class ImportClipRequest(BaseModel):
 @router.get("", response_model=list[ClipResponse])
 def list_clips(
     has_kills: bool | None = Query(default=None),
+    is_verified: bool | None = Query(default=None),
+    min_duration: float | None = Query(default=None),
+    max_duration: float | None = Query(default=None),
     session: Session = Depends(get_session)
 ):
     query = select(SourceClip).order_by(SourceClip.created_at.desc())
@@ -31,6 +34,15 @@ def list_clips(
         query = query.where(SourceClip.kill_count > 0)
     elif has_kills is False:
         query = query.where(SourceClip.kill_count == 0)
+
+    if is_verified is not None:
+        query = query.where(SourceClip.is_verified == is_verified)
+
+    if min_duration is not None:
+        query = query.where(SourceClip.duration >= min_duration)
+
+    if max_duration is not None:
+        query = query.where(SourceClip.duration <= max_duration)
     
     clips = session.exec(query).all()
     return [
