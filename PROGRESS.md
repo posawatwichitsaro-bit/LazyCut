@@ -18,17 +18,19 @@ A living progress tracking document for **LazyCut: Open-Source AI Video Automati
 ## 🚦 Roadmap & Phase Milestones
 
 ```
-Phase 1: MVP Core Engine (In Progress)
+Phase 1: MVP Core Engine (95% Completed)
   ├── Scaffolding & Git Setup ───────────────────────────── [x] Completed
-  ├── Database Models & SQLite Setup ────────────────────── [/] In Progress
-  ├── Hardware Encoder Auto-Probe ───────────────────────── [ ] Pending
-  ├── OpenCV Valorant Killfeed Detector ─────────────────── [ ] Pending
-  ├── FFmpeg Assembly Engine & Audio Ducking ────────────── [ ] Pending
-  ├── Watchdog Folder Monitor & Game Guard ──────────────── [ ] Pending
-  └── Windows start.bat Bootstrap ───────────────────────── [ ] Pending
+  ├── Database Models & SQLite Setup ────────────────────── [x] Completed
+  ├── Hardware Encoder Auto-Probe ───────────────────────── [x] Completed (Detected h264_amf)
+  ├── OpenCV Valorant Killfeed Detector ─────────────────── [x] Completed (Verified with unit tests)
+  ├── FFmpeg Assembly Engine & Audio Ducking ────────────── [x] Completed (9:16 layout + ducking)
+  ├── Presets & Audio Profiles (Valorant 1080p, Vibes) ──── [x] Completed
+  ├── Watchdog Folder Monitor & Game Guard ──────────────── [x] Completed
+  ├── Automated Test Suite (pytest) ─────────────────────── [x] Completed (9/9 passed)
+  └── Windows start.bat Bootstrap ───────────────────────── [x] Completed
 
 Phase 2: Local Web Dashboard & UI Integration
-  ├── FastAPI Static SPA Server & API Routes ────────────── [ ] Pending
+  ├── FastAPI Static SPA Server & API Routes ────────────── [/] Basic UI Mounted / React in progress
   ├── Studio Feed View (Import & Verified Kill Badges) ──── [ ] Pending
   ├── Reel Inspector View (Video Player & Download) ─────── [ ] Pending
   ├── Settings View (Watch Path, Presets, Guard) ────────── [ ] Pending
@@ -53,14 +55,15 @@ Phase 4: Open-Source Release & Packaging
 |---|---|---|---|
 | **P1-01** | **Repository** | Git initialize, remote origin, `.gitignore`, initial commit | `DONE` |
 | **P1-02** | **Docs & Diagrams** | `GLOSSARY.md`, ADRs 0001-0007, Architecture/Pipeline/ER diagrams | `DONE` |
-| **P1-03** | **Dependencies** | Create `requirements.txt` with FastAPI, OpenCV, Watchdog, SQLModel, imageio-ffmpeg | `IN_PROGRESS` |
-| **P1-04** | **Data Models** | Setup SQLite database with SQLModel (`SourceClip`, `KillEvent`, `MontageJob`, `ReelExport`) | `PENDING` |
-| **P1-05** | **Hardware Probe** | Diagnostic module testing NVENC, AMF, QSV, falling back to libx264 | `PENDING` |
-| **P1-06** | **OpenCV Detector** | Killfeed & Skull Banner detection for Valorant + Action Window calculation | `PENDING` |
-| **P1-07** | **FFmpeg Engine** | Filter complex generator for 9:16 cropping, sidechain audio ducking, fade-out curves | `PENDING` |
-| **P1-08** | **Presets & Audio** | Initial `presets/valorant_1080p.json` and default `vibes/` configuration | `PENDING` |
-| **P1-09** | **Folder Watcher** | Watchdog service monitoring video files + toggleable `VALORANT.exe` process guard | `PENDING` |
-| **P1-10** | **Bootstrap** | Windows `start.bat` script with auto-venv, dependency check, and browser opener | `PENDING` |
+| **P1-03** | **Dependencies** | Create `requirements.txt` with FastAPI, OpenCV, Watchdog, SQLModel, imageio-ffmpeg | `DONE` |
+| **P1-04** | **Data Models** | Setup SQLite database with SQLModel (`SourceClip`, `KillEvent`, `MontageJob`, `ReelExport`) | `DONE` |
+| **P1-05** | **Hardware Probe** | Diagnostic module testing NVENC, AMF, QSV, falling back to libx264 (Auto-detected AMF) | `DONE` |
+| **P1-06** | **OpenCV Detector** | Killfeed & Skull Banner detection for Valorant + Action Window calculation | `DONE` |
+| **P1-07** | **FFmpeg Engine** | Filter complex generator for 9:16 cropping, sidechain audio ducking, fade-out curves | `DONE` |
+| **P1-08** | **Presets & Audio** | Initial `presets/valorant_1080p.json` and default `vibes/` configuration | `DONE` |
+| **P1-09** | **Folder Watcher** | Watchdog service monitoring video files + toggleable `VALORANT.exe` process guard | `DONE` |
+| **P1-10** | **Bootstrap** | Windows `start.bat` script with auto-venv, dependency check, and browser opener | `DONE` |
+| **P1-11** | **Test Suite** | Unit tests for safety, detection, filter graph, and models (9/9 passed) | `DONE` |
 
 ---
 
