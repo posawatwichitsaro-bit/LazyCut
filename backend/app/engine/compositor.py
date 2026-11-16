@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from sqlmodel import Session
 
 from backend.app.core.config import settings
-from backend.app.core.hardware_probe import get_ffmpeg_binary, get_best_hardware_encoder
+from backend.app.core.hardware_probe import get_ffmpeg_binary, get_best_hardware_encoder, get_encoder_optimization_args
 from backend.app.core.safety import check_disk_safety
 from backend.app.engine.filter_graph import build_9_16_filter_graph
 from backend.app.models.entities import MontageJob, ReelExport, SourceClip
@@ -72,6 +72,9 @@ class MontageCompositor:
                 if accumulated_duration >= budget_limit:
                     break
 
+            # Cap final duration at budget limit if single clip exceeds requested target
+            accumulated_duration = min(accumulated_duration, budget_limit)
+
             # 3. Disk Safety Guard verification
             est_output_bytes = int(accumulated_duration * 2.5 * 1024 * 1024)  # ~20 Mbps bitrate
             check_disk_safety(settings.exports_dir, est_output_bytes)
@@ -127,6 +130,7 @@ class MontageCompositor:
             self.session.commit()
 
             # 6. Execute FFmpeg Command
+            opt_args = get_encoder_optimization_args(self.encoder)
             cmd = [
                 self.ffmpeg_bin,
                 "-y",
@@ -135,7 +139,7 @@ class MontageCompositor:
                 "-map", final_v,
                 "-map", final_a,
                 "-c:v", self.encoder,
-                "-preset", "fast",
+                *opt_args,
                 "-r", str(settings.default_fps),
                 "-c:a", "aac",
                 "-b:a", "192k",

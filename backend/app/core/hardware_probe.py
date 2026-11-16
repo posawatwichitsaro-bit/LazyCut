@@ -90,3 +90,16 @@ def get_best_hardware_encoder() -> str:
 
     _RESOLVED_ENCODER = "libx264"
     return _RESOLVED_ENCODER
+
+def get_encoder_optimization_args(encoder: str) -> list[str]:
+    """Returns the recommended speed/preset flags for the resolved encoder."""
+    if encoder == "libx264":
+        return ["-preset", "fast"]
+    elif encoder == "h264_nvenc":
+        return ["-preset", "p4"]
+    elif encoder == "h264_amf":
+        return ["-quality", "speed"]
+    elif encoder == "h264_qsv":
+        return ["-preset", "veryfast"]
+    return []
+

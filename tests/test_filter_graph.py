@@ -8,7 +8,8 @@ def test_build_9_16_filter_graph_without_bgm():
         total_duration=30.0
     )
     # Check that scale, crop, boxblur, concat, and fade are present
-    assert "boxblur=20:5" in filter_script
+    assert "boxblur=5:2" in filter_script
+    assert "scale=1080:1920" in filter_script
     assert "concat=n=2:v=1:a=0" in filter_script
     assert "concat=n=2:v=0:a=1" in filter_script
     assert "afade=t=out" in filter_script
