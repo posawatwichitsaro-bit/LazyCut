@@ -29,7 +29,7 @@ Phase 1: MVP Core Engine (95% Completed)
   ├── Automated Test Suite (pytest) ─────────────────────── [x] Completed (9/9 passed)
   └── Windows start.bat Bootstrap ───────────────────────── [x] Completed
 
-Phase 2: Local Web Dashboard & UI Integration (75% Completed)
+Phase 2: Local Web Dashboard & UI Integration (100% Completed)
   ├── FastAPI Static SPA Server & API Routes ────────────── [x] Completed
   ├── Metadata Engine & Zero-AI YouTube Chapters (P2-01) ── [x] Completed
   ├── Studio Feed Query Filters (kills, duration) (P2-02) ── [x] Completed
@@ -37,12 +37,12 @@ Phase 2: Local Web Dashboard & UI Integration (75% Completed)
   ├── 3-Screen Dashboard UI (Feed, Inspector, Settings) ─── [x] Completed (P2-04 TDD passed)
   ├── Reel Inspector (Video Player, Chapters Copy, DL) ──── [x] Completed
   ├── Settings View (Watch Path, Presets, Guard, GPU) ───── [x] Completed
-  └── Optional AI Router (LiteLLM / Ollama + Zero-AI) ───── [/] In Progress
+  └── Hybrid AI Router (Ollama + Zero-AI Fallback) (P2-05) ─ [x] Completed (P2-05 TDD passed)
 
-Phase 3: Community Presets & Auto-Publish
-  ├── JSON Preset Builder & Community Sharing ───────────── [ ] Pending
-  ├── YouTube Data API v3 OAuth2 Integration ────────────── [ ] Pending
-  └── Discord / Telegram Webhook Notifications ──────────── [ ] Pending
+Phase 3: Community Presets & Auto-Publish (In Progress)
+  ├── JSON Preset Builder & Schema Validator ────────────── [/] In Progress
+  ├── Discord / Telegram Webhook Notifications ──────────── [ ] Pending
+  └── YouTube Data API v3 OAuth2 Integration ────────────── [ ] Pending
 
 Phase 4: Open-Source Release & Packaging
   ├── Comprehensive Documentation (README.md & Docs) ────── [ ] Pending
@@ -71,6 +71,7 @@ Phase 4: Open-Source Release & Packaging
 | **P2-02** | **Clips Filtering API** | `GET /api/clips` query filtering by kills, duration range, and verification status (TDD passed) | `DONE` |
 | **P2-03** | **Montage Job API** | `POST /api/jobs` and `GET /api/jobs/{id}/export` lifecycle validation (TDD passed) | `DONE` |
 | **P2-04** | **3-Screen Dashboard** | Modern responsive SPA (Studio Feed, Reel Inspector with Video Player, Settings) (TDD passed) | `DONE` |
+| **P2-05** | **Hybrid AI Router** | `AIRouter` with Ollama integration and Zero-AI resilient fallback (TDD passed) | `DONE` |
 
 ---
 
