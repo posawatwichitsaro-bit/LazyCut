@@ -1,0 +1,29 @@
+name: lazycut
+
+services:
+  studio:
+    build: .
+    image: lazycut:local
+    init: true
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${LAZYCUT_PORT:-8000}:8000"
+    environment:
+      DATABASE_URL: sqlite:////app/data/lazycut.db
+      WATCH_PATH: /clips
+      WATCH_POLLING: "true"
+      GAME_GUARD_ENABLED: "false"
+      PREFERRED_ENCODER: libx264
+    volumes:
+      - studio-data:/app/data
+      - "${LAZYCUT_CLIPS_DIR:-./clips}:/clips:ro"
+      - ./music:/app/music:ro
+      - ./exports:/app/exports
+    healthcheck:
+      test: ["CMD", "python", "-c", "from urllib.request import urlopen; urlopen('http://127.0.0.1:8000/', timeout=3).close()"]
+      interval: 5s
+      timeout: 4s
+      retries: 10
+
+volumes:
+  studio-data:

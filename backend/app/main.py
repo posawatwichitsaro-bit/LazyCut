@@ -211,6 +211,7 @@ STUDIO_DASHBOARD_HTML = """<!DOCTYPE html>
             <option value="chill_memory">Chill Memory</option>
             <option value="raw_clean">Raw Clean</option>
           </select>
+          <label>Max (s) <input id="montageDuration" type="number" min="1" max="900" step="1" value="120" required style="width: 4.5rem;"></label>
           <button class="btn" onclick="startMontage()">⚡ Generate Montage</button>
         </div>
       </div>
@@ -285,7 +286,12 @@ STUDIO_DASHBOARD_HTML = """<!DOCTYPE html>
         <video id="previewPlayer" controls></video>
         <h3 id="previewName" style="margin-bottom: 0.5rem;"></h3>
         <div id="previewMeta" style="font-size: 0.85rem; color: var(--text-muted);"></div>
-        <div id="previewAnalysis" style="margin-top: 1rem;"></div>
+        <fieldset style="margin-top: 0.75rem; padding: 0.5rem;">
+          <legend>Montage timing for all clips</legend>
+          <label>Before (s) <input id="highlightPre" type="number" min="0" max="60" step="0.5" value="4.5" style="width: 4.5rem;"></label>
+          <label>After (s) <input id="highlightPost" type="number" min="0.5" max="60" step="0.5" value="2.5" style="width: 4.5rem;"></label>
+        </fieldset>
+        <div id="previewAnalysis" style="margin-top: 1rem; max-height: 12rem; overflow-y: auto;"></div>
       </div>
     </div>
   </div>
@@ -294,6 +300,23 @@ STUDIO_DASHBOARD_HTML = """<!DOCTYPE html>
     let currentFilter = 'all';
     let allClips = [];
     let selectedIds = new Set();
+    const eventSelections = new Map();
+    let previewRequest = 0;
+    let previewEnd = null;
+    const previewPlayer = document.getElementById('previewPlayer');
+    previewPlayer.addEventListener('timeupdate', () => {
+      if (previewEnd !== null && previewPlayer.currentTime >= previewEnd) {
+        previewPlayer.pause();
+        previewEnd = null;
+      }
+    });
+
+    function readHighlightTiming() {
+      const pre = document.getElementById('highlightPre');
+      const post = document.getElementById('highlightPost');
+      if (!pre.reportValidity() || !post.reportValidity() || !pre.value || !post.value) return null;
+      return { pre: Number(pre.value), post: Number(post.value) };
+    }
 
     function switchTab(tabName) {
       document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
@@ -420,6 +443,8 @@ STUDIO_DASHBOARD_HTML = """<!DOCTYPE html>
       if (!clip) return;
       const modal = document.getElementById('previewModal');
       const player = document.getElementById('previewPlayer');
+      const request = ++previewRequest;
+      previewEnd = null;
       document.getElementById('previewName').innerText = clip.file_name;
       document.getElementById('previewMeta').innerText = `Duration: ${clip.duration.toFixed(1)}s | Kills: ${clip.kill_count} | ${clip.is_verified ? 'Verified' : 'Unverified'}`;
       
@@ -433,32 +458,63 @@ STUDIO_DASHBOARD_HTML = """<!DOCTYPE html>
       
       modal.classList.add('active');
 
+      const panel = document.getElementById('previewAnalysis');
       try {
         const res = await fetch(`/api/clips/${clipId}/analyze`);
         const data = await res.json();
-        let html = '';
-        if (data.has_highlights) {
-          html += `<div style="margin-bottom: 0.5rem;"><span class="badge-ok">✅ ${data.moments.length} combat moment${data.moments.length > 1 ? 's' : ''} detected</span></div>`;
-          html += `<div style="font-size: 0.82rem; color: var(--text-muted);">Score: ${data.total_score.toFixed(0)} | Action Windows: ${data.action_windows.map(w => w[0].toFixed(1) + 's–' + w[1].toFixed(1) + 's').join(', ')}</div>`;
-          html += '<ul style="margin-top: 0.5rem; font-size: 0.82rem; list-style: none;">';
-          data.moments.forEach(m => {
-            html += `<li style="padding: 0.2rem 0;">⏱ ${m.timestamp.toFixed(1)}s — ${m.kill_count} kill${m.kill_count > 1 ? 's' : ''}${m.is_headshot ? ' 🎯 Headshot' : ''} (energy: ${m.audio_energy.toFixed(0)})</li>`;
-          });
-          html += '</ul>';
+        if (request !== previewRequest) return;
+        if (!res.ok) throw new Error(data.detail || 'Analysis failed.');
+        document.getElementById('previewMeta').textContent =
+          `Duration: ${data.duration.toFixed(1)}s | Kills: ${data.moments.length}`;
+        panel.replaceChildren();
+        const previous = eventSelections.get(clipId);
+        if (previous && previous.revision !== data.revision) eventSelections.delete(clipId);
+
+        if (!data.moments.length) {
+          panel.textContent = 'No combat highlights detected in this clip.';
         } else {
-          html = '<p style="color: var(--text-muted);">No combat highlights detected in this clip.</p>';
+          const selected = new Set(eventSelections.get(clipId)?.event_indices ?? data.moments.map((_, index) => index));
+          const caption = document.createElement('p');
+          caption.textContent = 'Include events in montage';
+          panel.append(caption);
+          data.moments.forEach((moment, index) => {
+            const row = document.createElement('div');
+            const label = document.createElement('label');
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.checked = selected.has(index);
+            checkbox.addEventListener('change', () => {
+              if (checkbox.checked) selected.add(index);
+              else selected.delete(index);
+              if (selected.size === data.moments.length) eventSelections.delete(clipId);
+              else eventSelections.set(clipId, { revision: data.revision, event_indices: [...selected] });
+            });
+            label.append(checkbox, ` ${moment.timestamp.toFixed(2)}s · ${moment.is_headshot ? 'Headshot kill' : 'Kill'} `);
+            const jump = document.createElement('button');
+            jump.className = 'btn btn-outline';
+            jump.textContent = 'Preview event';
+            jump.addEventListener('click', () => {
+              const timing = readHighlightTiming();
+              if (!timing) return;
+              player.currentTime = Math.max(0, moment.timestamp - timing.pre);
+              previewEnd = Math.min(data.duration, moment.timestamp + timing.post);
+              player.play().catch(() => { previewEnd = null; });
+            });
+            row.append(label, jump);
+            panel.append(row);
+          });
         }
-        document.getElementById('previewAnalysis').innerHTML = html;
-        // Reload clip list to pick up updated kill counts
         loadClips();
       } catch (e) {
-        document.getElementById('previewAnalysis').innerHTML = '<p style="color: var(--danger);">Analysis failed.</p>';
+        if (request === previewRequest) panel.textContent = e.message;
       }
     }
 
     function closePreview(e) {
       if (e && e.target !== document.getElementById('previewModal') && !e.target.classList.contains('modal-close')) return;
       const player = document.getElementById('previewPlayer');
+      previewRequest++;
+      previewEnd = null;
       player.pause();
       player.removeAttribute('src');
       document.getElementById('previewModal').classList.remove('active');
@@ -481,15 +537,24 @@ STUDIO_DASHBOARD_HTML = """<!DOCTYPE html>
         alert('Please select at least one clip!');
         return;
       }
+      const timing = readHighlightTiming();
+      if (!timing) return;
+      const duration = document.getElementById('montageDuration');
+      if (!duration.reportValidity()) return;
+      const selections = Object.fromEntries(selected.filter(id => eventSelections.has(id)).map(id => [id, eventSelections.get(id)]));
       const vibe = document.getElementById('vibeSelect').value;
       const fmt = document.getElementById('formatSelect').value;
 
       const res = await fetch('/api/jobs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clip_ids: selected, vibe_id: vibe, output_format: fmt, target_duration: 120 })
+        body: JSON.stringify({ clip_ids: selected, vibe_id: vibe, output_format: fmt, target_duration: Number(duration.value), timing, selections })
       });
       const job = await res.json();
+      if (!res.ok) {
+        alert(typeof job.detail === 'string' ? job.detail : 'Could not create montage.');
+        return;
+      }
       switchTab('inspector');
       document.getElementById('jobStatusBadge').innerText = `Job ${job.id.substring(0,8)}: Processing...`;
       pollJob(job.id);

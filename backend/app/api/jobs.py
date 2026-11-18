@@ -1,11 +1,14 @@
 import json
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+from sqlalchemy.engine import Connection, Engine
 from sqlmodel import Session, select
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
-from backend.app.core.database import get_session, engine
+from backend.app.core.database import get_session
 from backend.app.models.entities import MontageJob, ReelExport
 from backend.app.engine.compositor import MontageCompositor
+from backend.app.detection.clip_analysis import EventSelection, HighlightTiming
+from backend.app.watcher.process_guard import is_game_process_running
 
 router = APIRouter(prefix="/api/jobs", tags=["Montage Jobs"])
 
@@ -13,9 +16,11 @@ class CreateJobRequest(BaseModel):
     clip_ids: list[str]
     preset_id: str = "valorant_1080p"
     vibe_id: str = "hype_montage"
-    target_duration: int = 60
+    target_duration: int = Field(default=60, gt=0)
     output_format: str = "9:16"
     bgm_path: str | None = None
+    timing: HighlightTiming = Field(default_factory=HighlightTiming)
+    selections: dict[str, EventSelection] = Field(default_factory=dict)
 
 class JobResponse(BaseModel):
     id: str
@@ -26,17 +31,27 @@ class JobResponse(BaseModel):
     progress: float
     error_message: str | None
 
-def _run_montage_in_background(job_id: str, output_format: str, bgm_path: str | None):
-    with Session(engine) as session:
-        compositor = MontageCompositor(session)
+def _run_montage_in_background(bind: Engine | Connection, job_id: str, payload: CreateJobRequest):
+    with Session(bind) as session:
         try:
+            job = session.get(MontageJob, job_id)
+            if not job:
+                return
+            compositor = MontageCompositor(session)
             compositor.execute_job(
                 job_id=job_id,
-                output_format=output_format,
-                bgm_path=bgm_path
+                output_format=payload.output_format,
+                bgm_path=payload.bgm_path,
+                timing=payload.timing,
+                selections=payload.selections,
             )
-        except Exception:
-            pass
+        except Exception as exc:
+            session.rollback()
+            job = session.get(MontageJob, job_id)
+            if job and job.status != "FAILED":
+                job.status = "FAILED"
+                job.error_message = str(exc)
+                session.commit()
 
 @router.post("", response_model=JobResponse)
 def create_job(
@@ -46,12 +61,16 @@ def create_job(
 ):
     if not payload.clip_ids:
         raise HTTPException(status_code=400, detail="Must select at least one clip.")
+    if payload.selections.keys() - set(payload.clip_ids):
+        raise HTTPException(status_code=400, detail="Event selections must belong to selected clips.")
+    if is_game_process_running():
+        raise HTTPException(status_code=409, detail="Game Process Guard is active. Close the game before rendering.")
 
     job = MontageJob(
         preset_id=payload.preset_id,
         vibe_id=payload.vibe_id,
         target_duration=payload.target_duration,
-        selected_clips_json=json.dumps(payload.clip_ids),
+        selected_clips_json=json.dumps(list(dict.fromkeys(payload.clip_ids))),
         status="QUEUED",
         progress=0.0
     )
@@ -62,9 +81,9 @@ def create_job(
     # Dispatch to background task
     background_tasks.add_task(
         _run_montage_in_background,
+        session.get_bind(),
         job.id,
-        payload.output_format,
-        payload.bgm_path
+        payload,
     )
 
     return JobResponse(

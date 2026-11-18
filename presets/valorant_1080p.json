@@ -67,6 +67,12 @@
     ]
   },
   "detection_config": {
+    "killfeed_roi": {
+      "x": 1350,
+      "y": 30,
+      "width": 570,
+      "height": 320
+    },
     "banner_red_lower": [0, 130, 130],
     "banner_red_upper": [10, 255, 255],
     "banner_yellow_lower": [15, 150, 150],

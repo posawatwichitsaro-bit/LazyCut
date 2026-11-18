@@ -9,6 +9,8 @@ from sqlalchemy.pool import StaticPool
 
 from backend.app.core.config import settings
 from backend.app.core.hardware_probe import get_ffmpeg_binary
+from backend.app.detection.clip_analysis import EventSelection, HighlightTiming, analyze_clip
+from backend.app.detection.highlight_curator import CombatMoment, CuratedHighlight, HighlightCurator
 from backend.app.models.entities import SourceClip, MontageJob, ReelExport
 from backend.app.engine.compositor import MontageCompositor
 
@@ -98,9 +100,24 @@ def test_real_video_cut_and_vertical_transform(tmp_path, db_session, monkeypatch
     db_session.add(job)
     db_session.commit()
 
-    # 4. Execute Montage Compositor
+    # Analyze once, then render only the selected late event under the 2s budget.
+    monkeypatch.setattr(
+        HighlightCurator, "curate_clip",
+        lambda self, path: CuratedHighlight(
+            path, 6.0, [CombatMoment(1.0), CombatMoment(4.5, is_headshot=True)], []
+        ),
+    )
+    _, revision = analyze_clip(db_session, clip)
+
+    def unexpected_rescan(self, path):
+        pytest.fail("Rendering must reuse the cached Preview analysis")
+
+    monkeypatch.setattr(HighlightCurator, "curate_clip", unexpected_rescan)
     compositor = MontageCompositor(db_session=db_session)
-    export = compositor.execute_job(job_id=job.id, output_format="9:16")
+    export = compositor.execute_job(
+        job_id=job.id, output_format="9:16", timing=HighlightTiming(pre=2, post=1),
+        selections={clip.id: EventSelection(revision=revision, event_indices=[1])},
+    )
 
     # 5. Assertions on physical output file
     output_path = Path(export.output_path)
@@ -151,7 +168,7 @@ def test_real_video_cut_and_vertical_transform(tmp_path, db_session, monkeypatch
     with open(expected_chapters, "r", encoding="utf-8") as f:
         chapters_content = f.read()
     assert "00:00" in chapters_content
-    assert "Clip 1" in chapters_content
+    assert "Clip 1 (1 Kill)" in chapters_content
 
     # 8. Verify database state
     db_session.refresh(job)

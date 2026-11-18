@@ -5,8 +5,8 @@ from sqlmodel import Session, select
 from pydantic import BaseModel
 
 from backend.app.core.database import get_session
-from backend.app.models.entities import SourceClip, KillEvent
-from backend.app.detection.killfeed_detector import ValorantKillDetector
+from backend.app.models.entities import SourceClip
+from backend.app.detection.clip_analysis import HighlightTiming, analyze_clip, highlight_result, register_clip
 
 router = APIRouter(prefix="/api/clips", tags=["Clips"])
 
@@ -114,87 +114,41 @@ def stream_clip_video(clip_id: str, session: Session = Depends(get_session)):
     return FileResponse(str(video_path), media_type="video/mp4")
 
 @router.get("/{clip_id}/analyze")
-def analyze_clip_highlights(clip_id: str, session: Session = Depends(get_session)):
-    """Runs the HighlightCurator on a single clip, returning kill moments and action windows."""
+def analyze_clip_highlights(
+    clip_id: str,
+    pre: float = Query(default=4.5, ge=0, le=60),
+    post: float = Query(default=2.5, ge=0.5, le=60),
+    session: Session = Depends(get_session),
+):
     clip = session.get(SourceClip, clip_id)
     if not clip:
         raise HTTPException(status_code=404, detail="Clip not found.")
 
-    video_path = Path(clip.file_path)
-    if not video_path.exists():
-        raise HTTPException(status_code=404, detail="Video file not found on disk.")
+    try:
+        moments, revision = analyze_clip(session, clip)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Video file not found on disk.") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
-    from backend.app.detection.highlight_curator import HighlightCurator
-    curator = HighlightCurator()
-    result = curator.curate_clip(video_path)
+    result = highlight_result(clip, moments, HighlightTiming(pre=pre, post=post))
+    return {**result.to_dict(), "revision": revision}
 
-    # Update clip kill_count if curator found more
-    if result.has_highlights and len(result.moments) > clip.kill_count:
-        clip.kill_count = len(result.moments)
-        clip.is_verified = True
-        session.commit()
-
-    return result.to_dict()
 
 @router.post("/import", response_model=ClipResponse)
-def import_clip(
-    payload: ImportClipRequest,
-    session: Session = Depends(get_session)
-):
-    p = Path(payload.file_path)
-    if not p.exists() or not p.is_file():
+def import_clip(payload: ImportClipRequest, session: Session = Depends(get_session)):
+    path = Path(payload.file_path)
+    if not path.is_file():
         raise HTTPException(status_code=400, detail="File does not exist.")
 
-    # Check if already imported
-    existing = session.exec(select(SourceClip).where(SourceClip.file_path == str(p))).first()
-    if existing:
-        return ClipResponse(
-            id=existing.id,
-            file_path=existing.file_path,
-            file_name=existing.file_name,
-            duration=existing.duration,
-            file_size=existing.file_size,
-            kill_count=existing.kill_count,
-            is_verified=existing.is_verified
-        )
+    try:
+        clip, _ = register_clip(session, path)
+        analyze_clip(session, clip)
+    except (OSError, ValueError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
-    # Scan with HighlightCurator for precision kill banner & audio detection
-    from backend.app.detection.highlight_curator import HighlightCurator
-    curator = HighlightCurator()
-    result = curator.curate_clip(p)
-    kill_count = len(result.moments)
+    return ClipResponse.model_validate(clip, from_attributes=True)
 
-    clip = SourceClip(
-        file_path=str(p),
-        file_name=p.name,
-        file_size=p.stat().st_size,
-        duration=result.duration,
-        kill_count=kill_count,
-        is_verified=result.has_highlights and kill_count > 0
-    )
-    session.add(clip)
-    session.commit()
-    session.refresh(clip)
-
-    for m in result.moments:
-        ke = KillEvent(
-            clip_id=clip.id,
-            timestamp_sec=m.timestamp,
-            confidence=0.95,
-            event_type="headshot" if m.is_headshot else "skull_banner"
-        )
-        session.add(ke)
-    session.commit()
-
-    return ClipResponse(
-        id=clip.id,
-        file_path=clip.file_path,
-        file_name=clip.file_name,
-        duration=clip.duration,
-        file_size=clip.file_size,
-        kill_count=clip.kill_count,
-        is_verified=clip.is_verified
-    )
 
 @router.post("/scan")
 def scan_watch_directory(session: Session = Depends(get_session)):
@@ -204,6 +158,6 @@ def scan_watch_directory(session: Session = Depends(get_session)):
     if not settings.watch_path or not Path(settings.watch_path).exists():
         raise HTTPException(status_code=400, detail="Watch path is not configured or does not exist.")
 
-    registered = watcher_service.scan_existing_clips(Path(settings.watch_path))
+    registered = watcher_service.scan_existing_clips(Path(settings.watch_path), analyze=True)
     total_clips = len(session.exec(select(SourceClip)).all())
     return {"registered_new": registered, "total_clips": total_clips}

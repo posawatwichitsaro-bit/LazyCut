@@ -1,4 +1,5 @@
 import json
+from dataclasses import dataclass
 from pathlib import Path
 import cv2
 import numpy as np
@@ -7,6 +8,32 @@ from backend.app.core.config import settings
 TEMPLATE_DIR = Path(__file__).resolve().parent / "templates"
 CHAN_TEMPLATE_PATH = TEMPLATE_DIR / "chan_template.png"
 HEADSHOT_TEMPLATE_PATH = TEMPLATE_DIR / "headshot_template.png"
+
+@dataclass
+class KillfeedRow:
+    y: int
+    signature: np.ndarray
+    is_headshot: bool
+    score: float
+
+def match_killfeed_rows(
+    previous: list[KillfeedRow], current: list[KillfeedRow]
+) -> dict[int, int]:
+    """Match each visible row at most once, even when new entries push it down."""
+    candidates = []
+    for old_index, old in enumerate(previous):
+        for index, row in enumerate(current):
+            difference = float(np.mean(cv2.absdiff(old.signature, row.signature)))
+            if difference <= 12.0:
+                candidates.append((difference, abs(old.y - row.y), old_index, index))
+
+    matched = {}
+    used = set()
+    for _, _, old_index, index in sorted(candidates):
+        if old_index not in used and index not in matched:
+            matched[index] = old_index
+            used.add(old_index)
+    return matched
 
 class KillDetectionResult:
     def __init__(
@@ -55,14 +82,30 @@ class ValorantKillDetector:
         self.hs_tmpl = cv2.imread(str(HEADSHOT_TEMPLATE_PATH), cv2.IMREAD_GRAYSCALE) if HEADSHOT_TEMPLATE_PATH.exists() else None
 
     def detect_kills_in_roi(self, roi: np.ndarray) -> tuple[int, bool]:
-        """
-        Detects player kills within a killfeed region of interest.
-        Returns: (kill_count, is_headshot)
-        """
+        rows = self.detect_rows(roi)
+        return len(rows), any(row.is_headshot for row in rows)
+
+    def extract_killfeed(self, frame: np.ndarray) -> np.ndarray:
+        region = self.preset.get("detection_config", {}).get("killfeed_roi", {})
+        reference = self.preset.get("source_resolution", {})
+        height, width = frame.shape[:2]
+        sx = width / reference.get("width", 1920)
+        sy = height / reference.get("height", 1080)
+        x, y = region.get("x", 1350), region.get("y", 30)
+        w, h = region.get("width", 570), region.get("height", 320)
+        roi = frame[int(y * sy):int((y + h) * sy), int(x * sx):int((x + w) * sx)]
+        if roi.size and roi.shape[:2] != (h, w):
+            roi = cv2.resize(roi, (w, h))
+        return roi
+
+    def detect_rows(self, roi: np.ndarray) -> list[KillfeedRow]:
         if roi is None or roi.size == 0 or self.chan_tmpl is None:
-            return 0, False
+            return []
 
         gray_roi = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY) if len(roi.shape) == 3 else roi
+        th_h, th_w = self.chan_tmpl.shape
+        if gray_roi.shape[0] < th_h or gray_roi.shape[1] < th_w:
+            return []
         res = cv2.matchTemplate(gray_roi, self.chan_tmpl, cv2.TM_CCOEFF_NORMED)
 
         threshold = 0.70
@@ -70,13 +113,11 @@ class ValorantKillDetector:
         pts = list(zip(locs[1], locs[0]))
         pts.sort(key=lambda p: res[p[1], p[0]], reverse=True)
 
-        th_w, th_h = self.chan_tmpl.shape[1], self.chan_tmpl.shape[0]
-        confirmed_kills: list[tuple[int, int]] = []
-        is_headshot = False
+        confirmed_kills: list[KillfeedRow] = []
 
         for x, y in pts:
             # Enforce at least 18px separation between stacked killfeed rows
-            if not any(abs(y - cy) < 18 for cx, cy in confirmed_kills):
+            if not any(abs(y - row.y) < 18 for row in confirmed_kills):
                 y_min = max(0, y - 10)
                 y_max = min(roi.shape[0], y + th_h + 10)
                 x_min = max(0, x - 90)
@@ -92,14 +133,18 @@ class ValorantKillDetector:
 
                 # Validate yellow border (>= 120 px) and green card (>= 400 px)
                 if yellow >= 120 and green >= 400:
-                    confirmed_kills.append((x, y))
-                    if self.hs_tmpl is not None:
+                    is_headshot = False
+                    if self.hs_tmpl is not None and all(a >= b for a, b in zip(row.shape[:2], self.hs_tmpl.shape)):
                         gray_row = cv2.cvtColor(row, cv2.COLOR_BGR2GRAY)
                         hs_res = cv2.matchTemplate(gray_row, self.hs_tmpl, cv2.TM_CCOEFF_NORMED)
                         if cv2.minMaxLoc(hs_res)[1] >= 0.75:
                             is_headshot = True
+                    # Center the vertical crop on the row rather than its slot.
+                    gray_row = gray_roi[y:y + th_h, x_min:x_max]
+                    signature = cv2.resize(gray_row, (96, 16), interpolation=cv2.INTER_AREA)
+                    confirmed_kills.append(KillfeedRow(y, signature, is_headshot, float(res[y, x])))
 
-        return len(confirmed_kills), is_headshot
+        return sorted(confirmed_kills, key=lambda row: row.y)
 
     def analyze_clip(
         self,

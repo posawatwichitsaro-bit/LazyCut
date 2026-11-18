@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     
     # Watcher & Ingestion
     watch_path: str = ""
+    watch_polling: bool = False
     watch_extensions: list[str] = [".mp4", ".mkv", ".mov", ".avi"]
     game_guard_enabled: bool = True
     target_game_process: str = "VALORANT.exe"
