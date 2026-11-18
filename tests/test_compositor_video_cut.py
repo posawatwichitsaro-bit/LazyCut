@@ -193,8 +193,8 @@ def test_real_multi_clip_concatenation_and_cutting(tmp_path, db_session, monkeyp
 
     clip1_path = tmp_path / "source_part1_3s.mp4"
     clip2_path = tmp_path / "source_part2_3s.mp4"
-    create_synthetic_test_video(clip1_path, duration_seconds=3, width=1920, height=1080)
-    create_synthetic_test_video(clip2_path, duration_seconds=3, width=1920, height=1080)
+    create_synthetic_test_video(clip1_path, duration_seconds=3, width=1280, height=720)
+    create_synthetic_test_video(clip2_path, duration_seconds=3, width=1280, height=720)
 
     c1 = SourceClip(id="c1", file_path=str(clip1_path), file_name="part1.mp4", duration=3.0, kill_count=4, is_verified=True)
     c2 = SourceClip(id="c2", file_path=str(clip2_path), file_name="part2.mp4", duration=3.0, kill_count=2, is_verified=True)
@@ -212,6 +212,10 @@ def test_real_multi_clip_concatenation_and_cutting(tmp_path, db_session, monkeyp
     db_session.add(job)
     db_session.commit()
 
+    monkeypatch.setattr(
+        HighlightCurator, "curate_clip",
+        lambda self, path: CuratedHighlight(path, 3.0, [CombatMoment(1.0)], []),
+    )
     compositor = MontageCompositor(db_session=db_session)
     export = compositor.execute_job(job_id=job.id, output_format="9:16")
 
@@ -261,6 +265,10 @@ def test_real_cinema_16_9_montage_assembly(tmp_path, db_session, monkeypatch):
     db_session.add(job)
     db_session.commit()
 
+    monkeypatch.setattr(
+        HighlightCurator, "curate_clip",
+        lambda self, path: CuratedHighlight(path, 3.0, [CombatMoment(1.0)], []),
+    )
     compositor = MontageCompositor(db_session=db_session)
     export = compositor.execute_job(job_id=job.id, output_format="16:9")
 
@@ -278,3 +286,129 @@ def test_real_cinema_16_9_montage_assembly(tmp_path, db_session, monkeypatch):
     assert h == 1080, f"Expected 1080 height, got {h}"
     assert export.aspect_ratio == "16:9"
 
+
+
+def test_no_kills_finishes_without_export(tmp_path, db_session, monkeypatch):
+    path = tmp_path / "quiet.mp4"
+    path.touch()
+    clip = SourceClip(id="quiet", file_name=path.name, file_path=str(path))
+    job = MontageJob(selected_clips_json=json.dumps([clip.id]))
+    db_session.add_all([clip, job])
+    db_session.commit()
+    monkeypatch.setattr(HighlightCurator, "curate_clip",
+                        lambda self, path: CuratedHighlight(path, 5.0, [], []))
+    assert MontageCompositor(db_session).execute_job(job.id) is None
+    assert job.status == "NO_HIGHLIGHTS"
+    assert not job.exports
+
+
+def test_automatic_selection_stops_before_next_file(tmp_path, db_session, monkeypatch):
+    clips = []
+    for name in ("first.mp4", "next.mp4"):
+        path = tmp_path / name
+        path.touch()
+        clips.append(SourceClip(file_name=name, file_path=str(path)))
+    job = MontageJob(target_duration=2, selected_clips_json=json.dumps([c.id for c in clips]))
+    db_session.add_all([*clips, job])
+    db_session.commit()
+
+    def analyze(self, path):
+        assert path.name == "first.mp4"
+        return CuratedHighlight(path, 6.0, [CombatMoment(3.0)], [])
+
+    monkeypatch.setattr(HighlightCurator, "curate_clip", analyze)
+    class ReachedRenderStage(Exception):
+        pass
+
+    def stop_before_render(*args):
+        raise ReachedRenderStage
+
+    monkeypatch.setattr("backend.app.engine.compositor.check_disk_safety", stop_before_render)
+    with pytest.raises(ReachedRenderStage):
+        MontageCompositor(db_session).execute_job(job.id)
+
+def test_folder_queue_resumes_after_rename(tmp_path, db_session, monkeypatch):
+    from backend.app.models.entities import ExportedKill
+    from sqlmodel import select
+
+    monkeypatch.setattr(settings, "exports_dir", tmp_path)
+    path = create_synthetic_test_video(tmp_path / "game.mp4", duration_seconds=5)
+    monkeypatch.setattr(HighlightCurator, "curate_clip", lambda self, path:
+                        CuratedHighlight(path, 5.0, [CombatMoment(0.5), CombatMoment(4.5)], []))
+    def register(path):
+        clip = SourceClip(file_name=path.name, file_path=str(path))
+        db_session.add(clip)
+        db_session.commit()
+        return clip.id
+
+    def start(clip_id):
+        job = MontageJob(selected_clips_json=json.dumps([clip_id]), target_duration=1)
+        db_session.add(job)
+        db_session.commit()
+        return MontageCompositor(db_session).execute_job(
+            job.id, output_format="16:9", folder_queue=True, timing=HighlightTiming(pre=0.5, post=0.5)
+        )
+
+    assert start(register(path)) is not None
+    assert len(db_session.exec(select(ExportedKill)).all()) == 1
+    renamed = path.rename(tmp_path / "renamed.mp4")
+    clip_id = register(renamed)
+    assert start(clip_id) is not None
+    assert {row.timestamp_ms for row in db_session.exec(select(ExportedKill))} == {500, 4500}
+    assert start(clip_id) is None
+
+def test_folder_job_keeps_first_reel_when_second_render_fails(tmp_path, db_session, monkeypatch):
+    from backend.app.models.entities import ExportedKill
+    from sqlmodel import select
+
+    monkeypatch.setattr(settings, "exports_dir", tmp_path)
+    path = create_synthetic_test_video(tmp_path / "match.mp4", duration_seconds=9)
+    detector_calls = []
+    def curate(self, path):
+        detector_calls.append(path)
+        return CuratedHighlight(path, 9.0, [CombatMoment(0.5), CombatMoment(4.5), CombatMoment(8.5)], [])
+    monkeypatch.setattr(HighlightCurator, "curate_clip", curate)
+    clip = SourceClip(file_name=path.name, file_path=str(path))
+    db_session.add(clip)
+    db_session.commit()
+
+    def make_job():
+        job = MontageJob(selected_clips_json=json.dumps([clip.id]), target_duration=1)
+        db_session.add(job)
+        db_session.commit()
+        return job
+
+    compositor = MontageCompositor(db_session)
+    native_run = subprocess.run
+    render_count = 0
+
+    def fail_second_render(args, **kwargs):
+        nonlocal render_count
+        if "-filter_complex" in args:
+            render_count += 1
+            if render_count == 2:
+                Path(args[-1]).write_bytes(b"partial export")
+                return subprocess.CompletedProcess(args, 1, "", "simulated FFmpeg failure")
+        return native_run(args, **kwargs)
+
+    monkeypatch.setattr(subprocess, "run", fail_second_render)
+    timing = HighlightTiming(pre=0.5, post=0.5)
+    job = make_job()
+    with pytest.raises(RuntimeError, match="simulated FFmpeg failure"):
+        compositor.execute_job(job.id, output_format="16:9", folder_queue=True, max_reels=2, timing=timing)
+
+    assert job.status == "FAILED"
+    first, = job.exports
+    assert Path(first.output_path).is_file()
+    assert len(list(tmp_path.glob("reel_*.mp4"))) == 1
+    assert len(db_session.exec(select(ExportedKill)).all()) == 1
+
+    next_job = make_job()
+    compositor.execute_job(next_job.id, output_format="16:9", folder_queue=True, max_reels=2, timing=timing)
+    assert next_job.status == "COMPLETED"
+    assert len(next_job.exports) == 2
+    paths = {export.output_path for export in [first, *next_job.exports]}
+    assert len(paths) == 3
+    assert all(Path(output).is_file() for output in paths)
+    assert len(db_session.exec(select(ExportedKill)).all()) == 3
+    assert len(detector_calls) == 1

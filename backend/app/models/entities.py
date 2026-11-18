@@ -71,3 +71,29 @@ class ReelExport(SQLModel, table=True):
     created_at: datetime = Field(default_factory=get_utc_now)
 
     job: MontageJob | None = Relationship(back_populates="exports")
+
+
+class ExportedKill(SQLModel, table=True):
+    __tablename__ = "exported_kills"
+
+    recording_hash: str = Field(primary_key=True)
+    timestamp_ms: int = Field(primary_key=True)
+    export_id: str = Field(foreign_key="reel_exports.id")
+
+
+class RecordingFingerprint(SQLModel, table=True):
+    __tablename__ = "recording_fingerprints"
+
+    clip_id: str = Field(foreign_key="source_clips.id", primary_key=True)
+    revision: str
+    digest: str
+
+
+class ExportedSourceRange(SQLModel, table=True):
+    __tablename__ = "exported_source_ranges"
+
+    id: int | None = Field(default=None, primary_key=True)
+    recording_hash: str = Field(index=True)
+    export_id: str = Field(foreign_key="reel_exports.id")
+    start_seconds: float
+    end_seconds: float

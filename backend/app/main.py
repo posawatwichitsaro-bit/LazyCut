@@ -157,7 +157,7 @@ STUDIO_DASHBOARD_HTML = """<!DOCTYPE html>
       </div>
       <div class="header-badges">
         <span id="gpuBadge" class="chip chip-amf">GPU: Detecting...</span>
-        <span id="gameGuardBadge" class="chip chip-online">Game Guard: Active</span>
+        <span id="gameGuardBadge" class="chip">Game Guard: …</span>
       </div>
     </header>
 
@@ -201,18 +201,26 @@ STUDIO_DASHBOARD_HTML = """<!DOCTYPE html>
           <button class="btn btn-outline" style="font-size: 0.8rem;" onclick="selectKillsOnly()">Select Kills Only</button>
           <button class="btn btn-outline" style="font-size: 0.8rem;" onclick="deselectAll()">Clear</button>
         </div>
-        <div style="display: flex; gap: 0.75rem; align-items: center;">
-          <select id="formatSelect">
-            <option value="16:9">16:9 Cinema Montage</option>
-            <option value="9:16">9:16 Vertical Short</option>
+        <div style="display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center;">
+          <select id="formatSelect" aria-label="Reel orientation">
+            <option value="16:9">16:9 Horizontal</option>
+            <option value="9:16">9:16 Vertical</option>
           </select>
-          <select id="vibeSelect">
+          <select id="vibeSelect" aria-label="Editing style">
             <option value="hype_montage">Hype Montage</option>
             <option value="chill_memory">Chill Memory</option>
             <option value="raw_clean">Raw Clean</option>
           </select>
-          <label>Max (s) <input id="montageDuration" type="number" min="1" max="900" step="1" value="120" required style="width: 4.5rem;"></label>
-          <button class="btn" onclick="startMontage()">⚡ Generate Montage</button>
+          <label>Length <select id="durationProfile" onchange="updateOutputLimit()">
+            <option value="short">Short</option>
+            <option value="long">Long</option>
+          </select></label>
+          <label>Max seconds per Reel <input id="montageDuration" type="number" min="1" max="180" oninput="updateOutputLimit()" step="1" value="120" required style="width: 4.5rem;"></label>
+          <label>Max Reels <input id="maxReels" type="number" min="1" value="3"
+            required oninput="updateOutputLimit()" style="width: 4rem;"></label>
+          <output id="maxTotalDuration" aria-live="polite">Up to 6 min 0 sec total</output>
+          <button class="btn" id="startSelectionBtn" onclick="startMontage()">Generate Montage from selection</button>
+          <button class="btn" id="startFolderBtn" onclick="startMontage(true)">Start folder queue</button>
         </div>
       </div>
     </section>
@@ -225,10 +233,13 @@ STUDIO_DASHBOARD_HTML = """<!DOCTYPE html>
           <span id="jobStatusBadge" class="chip">No job selected</span>
         </div>
 
+        <div style="display: flex; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 1rem;">
+          <label>Reel <select id="reelSelect" onchange="showReel()" disabled></select></label>
+          <button class="btn btn-outline" onclick="showExportHistory()">Export history</button>
+        </div>
         <div class="video-grid">
           <div>
             <video id="videoPlayer" controls>
-              <source id="videoSource" src="" type="video/mp4">
               Your browser does not support the video element.
             </video>
             <div style="margin-top: 1rem; display: flex; gap: 0.75rem;">
@@ -242,6 +253,12 @@ STUDIO_DASHBOARD_HTML = """<!DOCTYPE html>
             <p id="metaTitle" style="font-weight: 600; margin-bottom: 0.5rem;">No Reel rendered yet.</p>
             <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">YouTube / TikTok Chapters:</p>
             <div id="metaChapters" class="pre-box">Chapters will appear here after rendering.</div>
+            <label for="reelRating">Rate this Reel</label>
+            <select id="reelRating" onchange="saveReelRating()" disabled>
+              <option value="">Choose rating</option>
+              <option>ดีมาก</option><option>ดี</option><option>แย่</option><option>แย่มาก</option>
+            </select>
+            <p id="ratingCounts" class="muted" aria-live="polite"></p>
           </div>
         </div>
       </div>
@@ -340,6 +357,9 @@ STUDIO_DASHBOARD_HTML = """<!DOCTYPE html>
         const data = await res.json();
         document.getElementById('gpuBadge').innerText = `GPU: ${data.resolved_encoder}`;
         document.getElementById('settingWatchPath').value = data.watch_path || '';
+        const guardBadge = document.getElementById('gameGuardBadge');
+        guardBadge.textContent = data.game_guard_enabled ? 'Game Guard: Enabled' : 'Game Guard: Off';
+        guardBadge.classList.toggle('chip-online', data.game_guard_enabled);
         document.getElementById('settingGameGuard').checked = data.game_guard_enabled;
         document.getElementById('settingEncoder').value = data.preferred_encoder || 'auto';
       } catch (e) {
@@ -531,9 +551,23 @@ STUDIO_DASHBOARD_HTML = """<!DOCTYPE html>
       }
     }
 
-    async function startMontage() {
-      const selected = Array.from(selectedIds);
-      if (selected.length === 0) {
+    let displayedReels = [];
+    let reelRatings = {};
+    let jobRunning = false;
+
+    function updateOutputLimit() {
+      const duration = document.getElementById('montageDuration');
+      duration.max = document.getElementById('durationProfile').value === 'short' ? 180 : 900;
+      const count = document.getElementById('maxReels');
+      const total = duration.valueAsNumber * count.valueAsNumber;
+      document.getElementById('maxTotalDuration').textContent = duration.validity.valid && count.validity.valid
+        ? `Up to ${Math.floor(total / 60)} min ${total % 60} sec total` : '';
+    }
+
+    async function startMontage(folderQueue = false) {
+      if (jobRunning) return;
+      const selected = folderQueue ? [] : Array.from(selectedIds);
+      if (!folderQueue && selected.length === 0) {
         alert('Please select at least one clip!');
         return;
       }
@@ -541,49 +575,153 @@ STUDIO_DASHBOARD_HTML = """<!DOCTYPE html>
       if (!timing) return;
       const duration = document.getElementById('montageDuration');
       if (!duration.reportValidity()) return;
+      const maximum = document.getElementById('maxReels');
+      if (folderQueue && !maximum.reportValidity()) return;
       const selections = Object.fromEntries(selected.filter(id => eventSelections.has(id)).map(id => [id, eventSelections.get(id)]));
       const vibe = document.getElementById('vibeSelect').value;
       const fmt = document.getElementById('formatSelect').value;
 
-      const res = await fetch('/api/jobs', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clip_ids: selected, vibe_id: vibe, output_format: fmt, target_duration: Number(duration.value), timing, selections })
-      });
-      const job = await res.json();
-      if (!res.ok) {
-        alert(typeof job.detail === 'string' ? job.detail : 'Could not create montage.');
-        return;
+      jobRunning = true;
+      const buttons = [document.getElementById('startSelectionBtn'), document.getElementById('startFolderBtn')];
+      buttons.forEach(button => button.disabled = true);
+      try {
+        const res = await fetch('/api/jobs', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            folder_queue: folderQueue, clip_ids: selected, vibe_id: vibe, output_format: fmt,
+            target_duration: duration.valueAsNumber, timing, selections,
+            max_reels: folderQueue ? maximum.valueAsNumber : 1,
+            duration_profile: document.getElementById('durationProfile').value
+          })
+        });
+        const job = await res.json();
+        if (!res.ok) throw new Error(typeof job.detail === 'string' ? job.detail : 'Could not create montage.');
+        switchTab('inspector');
+        document.getElementById('jobStatusBadge').textContent = 'Starting export…';
+        setDisplayedReels([]);
+        await pollJob(job.id);
+      } catch (error) {
+        alert(error.message);
+      } finally {
+        jobRunning = false;
+        buttons.forEach(button => button.disabled = false);
       }
-      switchTab('inspector');
-      document.getElementById('jobStatusBadge').innerText = `Job ${job.id.substring(0,8)}: Processing...`;
-      pollJob(job.id);
     }
 
     async function pollJob(jobId) {
-      const interval = setInterval(async () => {
-        const res = await fetch(`/api/jobs/${jobId}`);
-        const job = await res.json();
-        document.getElementById('jobStatusBadge').innerText = `Job ${job.id.substring(0,8)}: ${job.status} (${(job.progress * 100).toFixed(0)}%)`;
-        
-        if (job.status === 'COMPLETED' || job.status === 'FAILED') {
-          clearInterval(interval);
-          if (job.status === 'COMPLETED') {
-            const expRes = await fetch(`/api/jobs/${jobId}/export`);
-            const exp = await expRes.json();
-            const filename = exp.output_path.split('\\\\').pop().split('/').pop();
-            const reelUrl = `/exports/${filename}`;
-            
-            document.getElementById('videoPlayer').src = reelUrl;
-            document.getElementById('downloadBtn').href = reelUrl;
-            document.getElementById('downloadBtn').style.display = 'inline-flex';
-            document.getElementById('metaTitle').innerText = exp.ai_title || 'Valorant Highlights';
-            document.getElementById('metaChapters').innerText = exp.chapters || '';
-          } else {
-            alert('Job failed: ' + job.error_message);
-          }
+      const badge = document.getElementById('jobStatusBadge');
+      while (true) {
+        const response = await fetch(`/api/jobs/${jobId}`);
+        if (!response.ok) throw new Error('Could not read job status.');
+        const job = await response.json();
+        badge.textContent = `${job.status} (${Math.round(job.progress * 100)}%)`;
+        if (job.status === 'NO_HIGHLIGHTS') {
+          badge.textContent = 'No eligible player kills remain for this job.';
+          return;
         }
-      }, 1500);
+        if (job.status === 'COMPLETED' || job.status === 'FAILED') {
+          const results = await fetch(`/api/jobs/${jobId}/exports`);
+          if (!results.ok) throw new Error('Could not load exported Reels.');
+          const exports = await results.json();
+          setDisplayedReels(exports);
+          badge.textContent = job.status === 'FAILED'
+            ? `Failed after ${exports.length} export(s) — ${job.error_message}`
+            : `${exports.length} Reel(s) exported`;
+          await refreshRatings();
+          return;
+        }
+        await new Promise(resolve => setTimeout(resolve, 1500));
+      }
+    }
+
+    function setDisplayedReels(exports) {
+      displayedReels = exports;
+      const picker = document.getElementById('reelSelect');
+      picker.replaceChildren(...exports.map((reel, index) =>
+        new Option(`Reel ${index + 1} · ${reel.filename}`, reel.id)));
+      picker.disabled = exports.length === 0;
+      showReel();
+    }
+
+    function currentReel() {
+      const id = document.getElementById('reelSelect').value;
+      return displayedReels.find(reel => reel.id === id);
+    }
+
+    function showReel() {
+      const reel = currentReel();
+      const player = document.getElementById('videoPlayer');
+      const download = document.getElementById('downloadBtn');
+      if (reel) {
+        const url = `/exports/${encodeURIComponent(reel.filename)}`;
+        player.src = url;
+        download.href = url;
+      } else {
+        player.removeAttribute('src');
+        player.load();
+        download.removeAttribute('href');
+      }
+      download.style.display = reel ? 'inline-flex' : 'none';
+      document.getElementById('metaTitle').textContent = reel?.ai_title || '';
+      document.getElementById('metaChapters').textContent = reel?.chapters || '';
+      syncRating();
+    }
+
+    function syncRating() {
+      const reel = currentReel();
+      const control = document.getElementById('reelRating');
+      control.disabled = !reel;
+      control.value = reelRatings[reel?.id] || '';
+    }
+
+    function showRatingCounts(counts) {
+      document.getElementById('ratingCounts').textContent = Object.entries(counts)
+        .map(([label, count]) => `${label} ${count}`).join(' · ');
+    }
+
+    async function refreshRatings(showHistory = false) {
+      const res = await fetch('/api/jobs/reels/history');
+      if (!res.ok) throw new Error('Could not load export history.');
+      const history = await res.json();
+      reelRatings = history.ratings;
+      showRatingCounts(history.counts);
+      if (showHistory) setDisplayedReels(history.exports);
+      else syncRating();
+    }
+
+    async function showExportHistory() {
+      try {
+        await refreshRatings(true);
+        if (!jobRunning) document.getElementById('jobStatusBadge').textContent = 'Export history';
+      } catch (error) {
+        alert(error.message);
+      }
+    }
+
+    async function saveReelRating() {
+      const reel = currentReel();
+      const control = document.getElementById('reelRating');
+      if (!reel || !control.value) {
+        syncRating();
+        return;
+      }
+      const rating = control.value;
+      control.disabled = true;
+      try {
+        const response = await fetch(`/api/jobs/reels/${reel.id}/rating`, {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ rating })
+        });
+        if (!response.ok) throw new Error('Could not save Reel rating.');
+        const result = await response.json();
+        reelRatings[reel.id] = result.rating;
+        showRatingCounts(result.counts);
+      } catch (error) {
+        alert(error.message);
+      } finally {
+        syncRating();
+      }
     }
 
     function copyChapters() {
