@@ -84,3 +84,7 @@ LazyCut/
 ## 📄 License
 
 This project is licensed under the [MIT License](LICENSE).
+
+## Development context
+
+See [LazyCut Context](Context/README.md) for the product brief, design decisions, Docker setup and development reports.
