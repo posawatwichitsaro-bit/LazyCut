@@ -1,11 +1,10 @@
-import json
 import subprocess
 from pathlib import Path
 import cv2
 import numpy as np
 
-from backend.app.core.config import settings
 from backend.app.core.hardware_probe import get_ffmpeg_binary
+from backend.app.detection.killfeed_detector import ValorantKillDetector, match_killfeed_rows
 
 class CombatMoment:
     def __init__(
@@ -14,7 +13,8 @@ class CombatMoment:
         kill_count: int = 1,
         is_headshot: bool = False,
         audio_energy: float = 0.0,
-        is_player_kill: bool = True
+        is_player_kill: bool = True,
+        detection_score: float = 0.0
     ):
         self.timestamp = timestamp
         self.kill_count = kill_count
@@ -22,6 +22,7 @@ class CombatMoment:
         self.audio_energy = audio_energy
         self.is_player_kill = is_player_kill
         self.score = 0.0
+        self.detection_score = detection_score
 
     def to_dict(self) -> dict:
         return {
@@ -29,7 +30,8 @@ class CombatMoment:
             "kill_count": self.kill_count,
             "is_headshot": self.is_headshot,
             "audio_energy": round(self.audio_energy, 1),
-            "score": round(self.score, 1)
+            "score": round(self.score, 1),
+            "detection_score": round(self.detection_score, 3)
         }
 
 class CuratedHighlight:
@@ -69,11 +71,10 @@ class HighlightCurator:
     Curates genuine kills with full context and eliminates non-combat walking.
     """
     def __init__(self, preset_path: Path | None = None):
-        self.ffmpeg_bin = get_ffmpeg_binary()
-        from backend.app.detection.killfeed_detector import ValorantKillDetector
         self.killfeed_detector = ValorantKillDetector(preset_path)
 
-    def score_moment(self, moment: CombatMoment) -> float:
+    @staticmethod
+    def score_moment(moment: CombatMoment) -> float:
         """Scores a moment: Headshots and Multi-kills receive top hype scores."""
         if not moment.is_player_kill or moment.kill_count == 0:
             moment.score = 0.0
@@ -90,23 +91,25 @@ class HighlightCurator:
         moment.score = score
         return score
 
-    def is_worth_keeping(self, moment: CombatMoment) -> bool:
-        return self.score_moment(moment) >= 50.0
+    @staticmethod
+    def is_worth_keeping(moment: CombatMoment) -> bool:
+        return HighlightCurator.score_moment(moment) >= 50.0
 
+    @staticmethod
     def build_action_windows(
-        self,
         moments: list[CombatMoment],
         total_duration: float,
         lead_in: float = 4.5,
         lead_out: float = 2.5,
-        bridge_threshold: float = 3.5
+        bridge_threshold: float = 3.5,
+        minimum_context: bool = True
     ) -> list[tuple[float, float]]:
         """
         Calculates precision action windows around confirmed combat moments.
         Bridges moments occurring within bridge_threshold (3.5s).
         Ensures each window has ample context (minimum 6.0s duration).
         """
-        valid_moments = [m for m in moments if self.is_worth_keeping(m)]
+        valid_moments = [m for m in moments if HighlightCurator.is_worth_keeping(m)]
         if not valid_moments:
             return []
 
@@ -129,7 +132,7 @@ class HighlightCurator:
             end = min(total_duration, cluster[-1] + lead_out)
             
             # If standard lead-in (>=4.0) and window is under 6.0s, expand to guarantee readable context
-            if lead_in >= 4.0 and end - start < 6.0 and total_duration >= 6.0:
+            if minimum_context and lead_in >= 4.0 and end - start < 6.0 and total_duration >= 6.0:
                 mid = (start + end) / 2.0
                 start = max(0.0, mid - 3.5)
                 end = min(total_duration, start + 7.0)
@@ -167,7 +170,7 @@ class HighlightCurator:
     def extract_audio_peaks(self, video_path: Path, sample_rate: int = 16000) -> list[tuple[float, float]]:
         """Extracts audio RMS energy over 0.5s windows to detect intense combat."""
         cmd = [
-            self.ffmpeg_bin, "-y",
+            get_ffmpeg_binary(), "-y",
             "-i", str(video_path),
             "-vn", "-ac", "1", "-ar", str(sample_rate), "-f", "s16le", "-"
         ]
@@ -218,59 +221,47 @@ class HighlightCurator:
         audio_peaks = self.extract_audio_peaks(video_path)
         energy_map = {round(t * 2) / 2.0: e for t, e in audio_peaks}
 
-        # 2. Sample frames at ~4 fps
-        step = max(1, int(round(fps * 0.25)))
+        step = max(1, int(round(fps / 4.0)))
         combat_moments: list[CombatMoment] = []
-        last_kill_t = -10.0
-
+        previous_rows = []
+        previous_moments: dict[int, CombatMoment] = {}
         frame_idx = 0
-        while cap.isOpened() and frame_idx < total_frames:
-            cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
-            ret, frame = cap.read()
-            if not ret:
-                break
-            t = frame_idx / fps
+        last_seen = -2 * step
 
-            h, w = frame.shape[:2]
-            sx, sy = w / 1920.0, h / 1080.0
+        try:
+            while cap.grab():
+                if frame_idx % step == 0:
+                    ret, frame = cap.retrieve()
+                    if not ret:
+                        raise ValueError(f"Cannot decode frame {frame_idx}: {video_path}")
 
-            # Killfeed ROI (Top-Right): x: 0.68..1.0, y: 0.02..0.35
-            y1, y2 = int(30 * sy), int(350 * sy)
-            x1, x2 = int(1350 * sx), int(1920 * sx)
-            kf_roi = frame[y1:y2, x1:x2]
-
-            if abs(sx - 1.0) > 0.05 or abs(sy - 1.0) > 0.05:
-                kf_roi = cv2.resize(kf_roi, (570, 320))
-
-            # Detect kills by user: 'ฉัน' + lime-yellow border + green/teal box
-            kf_kills, is_headshot = self.killfeed_detector.detect_kills_in_roi(kf_roi)
-
-            t_bucket = round(t * 2) / 2.0
-            audio_e = energy_map.get(t_bucket, 0.0)
-
-            if kf_kills > 0:
-                # Debounce consecutive detections within 1.5s
-                if t - last_kill_t >= 1.5:
-                    moment = CombatMoment(
-                        timestamp=t,
-                        kill_count=kf_kills,
-                        is_headshot=is_headshot,
-                        audio_energy=audio_e,
-                        is_player_kill=True
-                    )
-                    self.score_moment(moment)
-                    combat_moments.append(moment)
-                    last_kill_t = t
-                else:
-                    if combat_moments:
-                        combat_moments[-1].kill_count = max(combat_moments[-1].kill_count, kf_kills)
-                        if is_headshot:
-                            combat_moments[-1].is_headshot = True
-                        self.score_moment(combat_moments[-1])
-
-            frame_idx += step
-
-        cap.release()
+                    t = frame_idx / fps
+                    rows = self.killfeed_detector.detect_rows(self.killfeed_detector.extract_killfeed(frame))
+                    matched = match_killfeed_rows(previous_rows, rows)
+                    current_moments = {}
+                    for index, row in enumerate(rows):
+                        if index in matched:
+                            moment = previous_moments[matched[index]]
+                            moment.is_headshot |= row.is_headshot
+                            moment.detection_score = max(moment.detection_score, row.score)
+                        else:
+                            moment = CombatMoment(
+                                timestamp=t,
+                                is_headshot=row.is_headshot,
+                                audio_energy=energy_map.get(round(t * 2) / 2.0, 0.0),
+                                detection_score=row.score
+                            )
+                            combat_moments.append(moment)
+                        self.score_moment(moment)
+                        current_moments[index] = moment
+                    # A single missing sample is common during the row animation.
+                    if rows or frame_idx > last_seen + step:
+                        previous_rows, previous_moments = rows, current_moments
+                    if rows:
+                        last_seen = frame_idx
+                frame_idx += 1
+        finally:
+            cap.release()
 
         # Build precision action windows
         action_windows = self.build_action_windows(

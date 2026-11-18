@@ -51,7 +51,8 @@ class CandidateCut:
         raw_end: float,
         kills: int = 1,
         is_headshot: bool = False,
-        energy: float = 5000.0
+        energy: float = 5000.0,
+        event_times: tuple[float, ...] = (),
     ):
         self.clip_id = clip_id
         self.file_name = file_name
@@ -61,6 +62,7 @@ class CandidateCut:
         self.kills = kills
         self.is_headshot = is_headshot
         self.energy = energy
+        self.event_times = event_times
         self.chronological_key = parse_clip_chronological_key(file_name)
 
 class OptimizedCut:
@@ -71,7 +73,8 @@ class OptimizedCut:
         start: float,
         end: float,
         transition: str = "cut",
-        title: str = ""
+        title: str = "",
+        kills: int = 0,
     ):
         self.clip_id = clip_id
         self.file_name = file_name
@@ -80,6 +83,7 @@ class OptimizedCut:
         self.duration = round(max(0.5, end - start), 2)
         self.transition = transition
         self.title = title
+        self.kills = kills
 
     def to_dict(self) -> dict:
         return {

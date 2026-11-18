@@ -33,6 +33,14 @@ class KillEvent(SQLModel, table=True):
     clip: SourceClip | None = Relationship(back_populates="kill_events")
 
 
+class ClipAnalysis(SQLModel, table=True):
+    __tablename__ = "clip_analyses"
+
+    clip_id: str = Field(foreign_key="source_clips.id", primary_key=True)
+    revision: str
+    moments_json: str
+
+
 class MontageJob(SQLModel, table=True):
     __tablename__ = "montage_jobs"
 

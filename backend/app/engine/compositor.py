@@ -1,7 +1,5 @@
-import os
 import json
 import subprocess
-import tempfile
 from pathlib import Path
 from datetime import datetime, timezone
 from sqlmodel import Session
@@ -10,9 +8,44 @@ from backend.app.core.config import settings
 from backend.app.core.hardware_probe import get_ffmpeg_binary, get_best_hardware_encoder, get_encoder_optimization_args
 from backend.app.core.safety import check_disk_safety
 from backend.app.engine.filter_graph import build_9_16_filter_graph, build_16_9_cinema_filter_graph
-from backend.app.detection.highlight_curator import HighlightCurator
-from backend.app.engine.ai_montage_director import AIMontageDirector, CandidateCut, OptimizedCut
+from backend.app.detection.clip_analysis import EventSelection, HighlightTiming, analyze_clip, highlight_result
+from backend.app.engine.ai_montage_director import CandidateCut, OptimizedCut
 from backend.app.models.entities import MontageJob, ReelExport, SourceClip
+from backend.app.watcher.process_guard import is_game_process_running
+
+def plan_cuts(candidates: list[CandidateCut], budget: float) -> list[OptimizedCut]:
+    ranked = sorted(
+        candidates,
+        key=lambda cut: (-cut.kills, not cut.is_headshot, -cut.energy, cut.chronological_key, cut.raw_start),
+    )
+    selected = []
+    for cut in ranked:
+        start, end = round(cut.raw_start, 2), round(cut.raw_end, 2)
+        duration = min(round(end - start, 2), round(budget, 2))
+        if duration < 0.5:
+            continue
+
+        if duration < end - start:
+            anchor = cut.event_times[0] if cut.event_times else start
+            start = round(max(start, min(anchor - duration / 2, end - duration)), 2)
+            end = round(start + duration, 2)
+
+        kills = sum(start <= timestamp < end for timestamp in cut.event_times)
+        if cut.event_times and not kills:
+            continue
+        selected.append((cut.chronological_key, start, end, cut, kills))
+        budget -= duration
+
+    selected.sort(key=lambda item: (item[0], item[3].file_name, item[1]))
+    return [
+        OptimizedCut(
+            clip_id=cut.clip_id, file_name=cut.file_name, start=start, end=end,
+            title=f"Clip {index} ({kills} {'Kill' if kills == 1 else 'Kills'})",
+            kills=kills,
+        )
+        for index, (_, start, end, cut, kills) in enumerate(selected, 1)
+    ]
+
 
 class MontageCompositor:
     def __init__(self, db_session: Session):
@@ -24,7 +57,9 @@ class MontageCompositor:
         self,
         job_id: str,
         output_format: str = "9:16",
-        bgm_path: str | Path | None = None
+        bgm_path: str | Path | None = None,
+        timing: HighlightTiming | None = None,
+        selections: dict[str, EventSelection] | None = None,
     ) -> ReelExport:
         """
         Executes a Montage Job, rendering selected clips into a final Reel.
@@ -38,6 +73,9 @@ class MontageCompositor:
         self.session.commit()
 
         try:
+            if is_game_process_running():
+                raise ValueError("Game Process Guard is active. Close the game before rendering.")
+
             # 1. Parse selected clips
             clip_ids: list[str] = json.loads(job.selected_clips_json)
             if not clip_ids:
@@ -59,87 +97,63 @@ class MontageCompositor:
             fadeout_style = vibe_cfg.get("fadeout_style", "exp")
             fadeout_duration = vibe_cfg.get("fadeout_duration_seconds", 2.0)
 
-            # 2. Stage 1: Curate combat candidate highlights
-            curator = HighlightCurator()
+            timing = timing or HighlightTiming()
+            selections = selections or {}
             candidate_cuts: list[CandidateCut] = []
-            clip_map: dict[str, SourceClip] = {}
+            fallback_cuts: list[CandidateCut] = []
+            clip_map = {clip.id: clip for clip in clips}
 
-            for c in clips:
-                clip_map[c.id] = c
-                c_path = Path(c.file_path)
-                if not c_path.exists():
+            for clip in clips:
+                selection = selections.get(clip.id)
+                if not Path(clip.file_path).is_file():
+                    if selection is not None:
+                        raise ValueError(f"Selected source clip is missing: {clip.file_name}")
                     continue
 
-                res = curator.curate_clip(c_path)
-                if res.has_highlights and res.action_windows:
-                    c.kill_count = max(c.kill_count, len(res.moments))
-                    c.is_verified = True
-                    # Include each confirmed action window
-                    for win in res.action_windows:
-                        win_kills = sum(1 for m in res.moments if win[0] <= m.timestamp <= win[1])
-                        candidate_cuts.append(CandidateCut(
-                            clip_id=c.id,
-                            file_name=c.file_name,
-                            raw_start=win[0],
-                            raw_end=win[1],
-                            kills=max(1, win_kills),
-                            is_headshot=any(m.is_headshot for m in res.moments if win[0] <= m.timestamp <= win[1]),
-                            energy=max((m.audio_energy for m in res.moments if win[0] <= m.timestamp <= win[1]), default=5000.0)
-                        ))
-                else:
-                    # Clip has NO confirmed kills: do NOT pollute kill montage with spawn walks or 0-kill rounds
-                    pass
+                moments, revision = analyze_clip(self.session, clip)
+                if selection is not None:
+                    if selection.revision != revision:
+                        raise ValueError(f"Analysis changed for {clip.file_name}. Reopen Preview and select events again.")
+                    indices = sorted(set(selection.event_indices))
+                    if any(index < 0 or index >= len(moments) for index in indices):
+                        raise ValueError(f"Invalid event selection for {clip.file_name}.")
+                    moments = [moments[index] for index in indices]
 
-            # Fallback only if none of the selected clips had any detected kills
-            if not candidate_cuts:
-                for c in clips:
-                    c_path = Path(c.file_path)
-                    if c_path.exists():
-                        safe_dur = min(c.duration if c.duration > 0 else 10.0, float(job.target_duration))
+                result = highlight_result(clip, moments, timing)
+                for start, end in result.action_windows:
+                    events = sorted(
+                        (m for m in moments if start <= m.timestamp < end),
+                        key=lambda m: (-m.score, m.timestamp),
+                    )
+                    if events:
                         candidate_cuts.append(CandidateCut(
-                            clip_id=c.id,
-                            file_name=c.file_name,
-                            raw_start=0.0,
-                            raw_end=safe_dur,
-                            kills=0
+                            clip_id=clip.id, file_name=clip.file_name,
+                            raw_start=start, raw_end=end, kills=len(events),
+                            is_headshot=any(m.is_headshot for m in events),
+                            energy=max(m.audio_energy for m in events),
+                            event_times=tuple(m.timestamp for m in events),
                         ))
 
-            # 3. Stage 2: Pure Script Chronological Sequencing (Deterministic, No AI Mutilation)
-            # Arrange cuts strictly by chronological match order (before -> after)
-            chrono_cuts = sorted(candidate_cuts, key=lambda cut: (cut.chronological_key, cut.raw_start))
+                if selection is None and not moments and clip.duration > 0:
+                    fallback_cuts.append(CandidateCut(
+                        clip_id=clip.id, file_name=clip.file_name,
+                        raw_start=0.0, raw_end=clip.duration, kills=0,
+                    ))
 
-            # Assemble EDL preserving the computer-vision action windows within budget limit
-            budget_limit = min(float(job.target_duration), float(settings.max_montage_duration_seconds))
-            optimized_edl: list[OptimizedCut] = []
-            accumulated_duration = 0.0
+            if not candidate_cuts and not selections:
+                candidate_cuts = fallback_cuts
 
-            for idx, cut in enumerate(chrono_cuts):
-                remaining_budget = budget_limit - accumulated_duration
-                if remaining_budget <= 0.5 and len(optimized_edl) >= 1:
-                    break
-
-                cut_dur = min(cut.raw_duration, remaining_budget)
-                if cut_dur < cut.raw_duration:
-                    opt_start = cut.raw_start
-                    opt_end = cut.raw_start + cut_dur
-                else:
-                    opt_start = cut.raw_start
-                    opt_end = cut.raw_end
-
-                optimized_edl.append(OptimizedCut(
-                    clip_id=cut.clip_id,
-                    file_name=cut.file_name,
-                    start=opt_start,
-                    end=opt_end,
-                    transition="cut",
-                    title=f"Highlight {len(optimized_edl) + 1} ({cut.kills} Kills)"
-                ))
-                accumulated_duration += cut_dur
+            budget_limit = min(job.target_duration, settings.max_montage_duration_seconds)
+            optimized_edl = plan_cuts(candidate_cuts, budget_limit)
+            accumulated_duration = sum(cut.duration for cut in optimized_edl)
 
             if not optimized_edl:
                 raise ValueError("No valid cuts could be assembled.")
 
-            packed_clips = [clip_map[cut.clip_id] for cut in optimized_edl if cut.clip_id in clip_map]
+            packed_clips = [
+                clip_map[cut.clip_id].model_copy(update={"duration": cut.duration, "kill_count": cut.kills})
+                for cut in optimized_edl
+            ]
 
             # 4. Disk Safety Guard verification
             est_output_bytes = int(accumulated_duration * 2.5 * 1024 * 1024)  # ~20 Mbps bitrate
@@ -245,9 +259,10 @@ class MontageCompositor:
             ai_router = AIRouter(provider="none")  # Extensible with settings.ai_provider
             ai_meta = ai_router.generate(job=job, clips=packed_clips)
 
+            chapters = "\n".join(chapters_lines) + "\n"
             chapters_path = settings.exports_dir / f"chapters_{timestamp_str}_{job.id[:8]}.txt"
             with open(chapters_path, "w", encoding="utf-8") as f:
-                f.write(ai_meta.chapters_txt)
+                f.write(chapters)
 
             # 8. Create ReelExport Record
             export = ReelExport(
@@ -255,9 +270,9 @@ class MontageCompositor:
                 output_path=str(output_path),
                 actual_duration=round(accumulated_duration, 2),
                 aspect_ratio=output_format,
-                chapters_txt=ai_meta.chapters_txt,
+                chapters_txt=chapters,
                 ai_title=ai_meta.title,
-                ai_description=ai_meta.description
+                ai_description=ai_meta.description.replace(ai_meta.chapters_txt, chapters.rstrip())
             )
             self.session.add(export)
 
@@ -277,6 +292,7 @@ class MontageCompositor:
             return export
 
         except Exception as e:
+            self.session.rollback()
             job.status = "FAILED"
             job.error_message = str(e)
             self.session.commit()

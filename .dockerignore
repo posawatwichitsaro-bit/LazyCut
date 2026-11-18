@@ -1,0 +1,10 @@
+*
+!requirements.txt
+!backend/
+!backend/**
+!presets/
+!presets/**
+!vibes/
+!vibes/**
+**/__pycache__/
+**/*.pyc
