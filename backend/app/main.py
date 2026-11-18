@@ -58,13 +58,13 @@ STUDIO_DASHBOARD_HTML = """<!DOCTYPE html>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
-      --bg-dark: #090d16;
-      --card-bg: #111827;
-      --card-border: #1f2937;
-      --accent: #f97316;
-      --accent-hover: #ea580c;
-      --text-main: #f9fafb;
-      --text-muted: #9ca3af;
+      --bg-dark: #f3f2f7;
+      --card-bg: #ffffff;
+      --card-border: #dcd9e5;
+      --accent: #663bce;
+      --accent-hover: #5431b3;
+      --text-main: #222033;
+      --text-muted: #615e70;
       --success: #10b981;
       --danger: #ef4444;
       --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -143,17 +143,76 @@ STUDIO_DASHBOARD_HTML = """<!DOCTYPE html>
       .video-grid { grid-template-columns: 1fr; }
       .action-bar { flex-direction: column; align-items: stretch; }
     }
+
+    body { padding: 0; }
+    .container { max-width: 1600px; padding: 0 clamp(16px, 4vw, 72px) 40px; }
+    header { min-height: 74px; margin: 0; padding: 12px 0; }
+    .brand h1 { font-size: 22px; letter-spacing: -.065em; color: var(--text-main); }
+    .brand-mark { width: 32px; height: 32px; display: grid; place-items: center; background: #261e36; color: #c6ff80; border-radius: 9px; font-size: 26px; font-weight: 900; font-style: italic; }
+    .header-badges { flex-wrap: wrap; justify-content: end; gap: 4px; }
+    .chip-amf, .chip-online { background: #fff; color: #43404e; border-color: var(--card-border); }
+    .nav-tabs { gap: 6px; margin: 16px 0 28px; flex-wrap: wrap; }
+    .tab-btn { padding: 8px 14px; border: 0; font-size: 14px; border-radius: 7px; }
+    .tab-btn.active { background: #e4dcf8; color: #512aa4; border: 0; }
+    .workspace { display: grid; grid-template-columns: minmax(0, 1fr) minmax(260px, 320px); gap: 20px; align-items: start; }
+    .card { border-radius: 16px; min-width: 0; }
+    .card-title, .action-bar h2 { font-size: clamp(22px, 2.7vw, 34px); letter-spacing: -.055em; line-height: 1.15; }
+    .card-header { align-items: center; gap: 14px; }
+    .pill { background: #f2f0f6; color: #514d5c; }
+    .clip-grid { grid-template-columns: repeat(auto-fill,minmax(min(220px,100%),1fr)); }
+    .clip-card { background: #fff; }
+    .selection-tools { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; border-top: 1px solid var(--card-border); padding-top: 14px; margin-top: 16px; }
+    .empty-library { grid-column: 1/-1; min-height: 290px; display: grid; place-content: center; justify-items: center; padding: 24px; text-align: center; border-radius: 12px; background: radial-gradient(ellipse at 50% 42%,#e4daf6,transparent 60%),repeating-linear-gradient(135deg,#f3eff9 0 10px,#eeeaf5 10px 11px); }
+    .slate { display:block; width:78px; height:50px; border-radius:6px; background:#312538; transform:rotate(-8deg); box-shadow:6px 7px 0 #c9b9e2; position:relative; margin: 10px 0 25px; }
+    .slate::before { content:""; position:absolute; left:0; top:-8px; width:100%; height:13px; background:repeating-linear-gradient(125deg,#b6f885 0 11px,#312538 11px 22px); border-radius:3px; transform:rotate(-8deg); transform-origin:left bottom; }
+    .slate::after { content:""; position:absolute; left:32px; top:19px; border-left:15px solid #e8dafa; border-top:9px solid transparent; border-bottom:9px solid transparent; }
+    .empty-library strong { font-size: 21px; letter-spacing: -.04em; }
+    .empty-library p { max-width: 38ch; color: var(--text-muted); margin: 6px 0 15px; }
+    .action-bar { display: block; position: static; background: #231f30; color:#faf9ff; border: 0; border-radius: 16px; padding: 22px; box-shadow: none; }
+    .action-bar h2 { font-size: 23px; margin-bottom: 20px; }
+    .export-controls { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px 10px; }
+    .export-controls label { font-size: 12px; color:#d3cddf; display:grid; align-content:start; gap:5px; }
+    input[type=text], select, input[type=number] { background:#faf9fc; color:#252131; border:1px solid var(--card-border); border-radius:7px; padding:8px; max-width:100%; }
+    .export-controls select,.export-controls input { width:100% !important; min-width:0; font-size:14px; background:#383343; color:#fff; border-color:#56505e; }
+    .export-controls output,.export-controls button { grid-column:1/-1; }
+    .export-controls output { border-top:1px solid #51495f; padding-top:14px; color:#d4cbe0; font-size:13px; }
+    .export-controls button { justify-content:center; }
+    #startFolderBtn { background:#bef488; color:#1e2b15; min-height:42px; }
+    #startSelectionBtn { background:transparent; border:1px solid #696173; color:#eee; }
+    .btn-secondary { background:#eeeaf4; }
+    .btn-secondary:hover { background:#dfd8e9; }
+    .video-grid { grid-template-columns:minmax(0,2fr) minmax(220px,1fr); }
+    .video-grid > div { min-width:0; }
+    .pre-box { background:#f3f1f7; color:#393342; margin-bottom:16px; }
+    .modal-close { color:var(--text-main); }
+    :focus-visible { outline:3px solid #a485fa !important; outline-offset:2px; }
+    @media(max-width:850px) { .workspace,.video-grid { grid-template-columns:minmax(0,1fr); } .empty-library {min-height:190px;} }
+    @media(max-width:520px) { header {align-items:start;} .card,.action-bar {padding:16px;} .chip {font-size:10px;} .nav-tabs {gap:0;} }
+    .orientation {grid-column:1/-1; display:grid; grid-template-columns:1fr 1fr; gap:8px; border:0; min-width:0}
+    .orientation legend {color:#dbd7e3;font-size:13px;margin-bottom:7px}
+    .orientation label {position:relative;cursor:pointer}
+    .orientation input {position:absolute;opacity:0;width:1px!important;height:1px}
+    .orientation span {display:grid;grid-template-columns:1fr auto;align-items:center;gap:4px;padding:13px 10px;border-radius:9px;border:1px solid #736b81;font-size:14px}
+    .orientation i {grid-column:1/-1;border:2px solid currentColor;border-radius:3px;margin-bottom:6px}
+    .wide-frame {width:25px;height:15px}.tall-frame {width:15px;height:25px}
+    .orientation span {grid-template-rows:28px auto}
+    .orientation small {font-size:11px}.orientation input:checked+span {background:#e9defd;color:#322447;border-color:#bda0ea}
+    .orientation input:focus-visible+span {outline:3px solid #bef488;outline-offset:2px}
+    .selection-tools[hidden] {display:none}
+    #startSelectionBtn {margin-left:auto;background:#5833aa;color:white;border:0}
+    button:disabled,#startFolderBtn:disabled {background:#453f50;color:#d5cedf;cursor:not-allowed;opacity:.72}
+    #queueHint {grid-column:1/-1;color:#dfd8e8;font-size:12px;text-align:center}
+    .btn,.pill {min-height:36px}.btn:not(:disabled):active {transform:translateY(1px)}
+    #notice:not(:empty) {position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:120;background:#282132;color:white;padding:12px 18px;border-radius:10px;box-shadow:0 5px 24px #22113633;max-width:90vw}
   </style>
 </head>
 <body>
   <div class="container">
+    <div id="notice" role="status" aria-live="polite"></div>
     <header>
       <div class="brand">
-        <span style="font-size: 2rem;">🎬</span>
-        <div>
-          <h1>LazyCut Studio</h1>
-          <p style="font-size: 0.8rem; color: var(--text-muted);">AI Highlight & Montage Studio</p>
-        </div>
+        <span class="brand-mark" aria-hidden="true">L</span>
+        <h1>LazyCut Studio</h1>
       </div>
       <div class="header-badges">
         <span id="gpuBadge" class="chip chip-amf">GPU: Detecting...</span>
@@ -163,27 +222,28 @@ STUDIO_DASHBOARD_HTML = """<!DOCTYPE html>
 
     <!-- 3 Core Navigation Tabs -->
     <nav class="nav-tabs">
-      <button class="tab-btn active" onclick="switchTab('feed')">Studio Feed (Clip Picker)</button>
+      <button class="tab-btn active" onclick="switchTab('feed')">Studio Feed</button>
       <button class="tab-btn" onclick="switchTab('inspector')">Reel Inspector</button>
       <button class="tab-btn" onclick="switchTab('settings')">Settings</button>
     </nav>
 
     <!-- SCREEN 1: CLIP PICKER GRID -->
     <section id="tab-feed">
+      <div class="workspace">
       <div class="card">
         <div class="card-header">
-          <span class="card-title">Source Clips Library</span>
+          <span class="card-title">Clip library</span>
           <div style="display: flex; gap: 0.5rem; align-items: center;">
-            <button class="btn btn-outline" style="font-size: 0.8rem;" onclick="rescanFolder()">🔄 Rescan Folder</button>
-            <button class="btn btn-outline" style="font-size: 0.8rem;" onclick="loadClips()">Refresh</button>
+            <button class="btn btn-outline" style="font-size: 0.8rem;" onclick="rescanFolder()">Scan &amp; analyze folder</button>
+            <button class="btn btn-outline" style="font-size: 0.8rem;" onclick="loadClips()">Refresh list</button>
           </div>
         </div>
 
         <!-- Filter Pills -->
         <div class="filter-pills" id="filterPills">
           <button class="pill active" onclick="filterClips('all', this)">All Clips</button>
-          <button class="pill" onclick="filterClips('kills', this)">🎯 Has Kills</button>
-          <button class="pill" onclick="filterClips('verified', this)">✅ Verified</button>
+          <button class="pill" onclick="filterClips('kills', this)">Has Kills</button>
+          <button class="pill" onclick="filterClips('verified', this)">Verified</button>
           <span id="clipCountLabel" style="margin-left: auto; font-size: 0.8rem; color: var(--text-muted);">0 clips</span>
         </div>
 
@@ -191,27 +251,27 @@ STUDIO_DASHBOARD_HTML = """<!DOCTYPE html>
         <div class="clip-grid" id="clipGrid">
           <div style="grid-column: 1/-1; text-align: center; padding: 3rem; color: var(--text-muted);">Loading clips...</div>
         </div>
-      </div>
-
-      <!-- Action Generation Bar -->
-      <div class="action-bar">
-        <div style="display: flex; align-items: center; gap: 1rem;">
+        <div class="selection-tools">
           <span id="selectionCounter" style="font-weight: 600;">0 clips selected</span>
           <button class="btn btn-outline" style="font-size: 0.8rem;" onclick="selectAll()">Select All</button>
           <button class="btn btn-outline" style="font-size: 0.8rem;" onclick="selectKillsOnly()">Select Kills Only</button>
-          <button class="btn btn-outline" style="font-size: 0.8rem;" onclick="deselectAll()">Clear</button>
+          <button class="btn btn-outline" style="font-size: 0.8rem;" onclick="deselectAll()">Clear selection</button>
+          <button class="btn" id="startSelectionBtn" disabled onclick="startMontage()">Create from selected clips</button>
         </div>
-        <div style="display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center;">
-          <select id="formatSelect" aria-label="Reel orientation">
-            <option value="16:9">16:9 Horizontal</option>
-            <option value="9:16">9:16 Vertical</option>
-          </select>
-          <select id="vibeSelect" aria-label="Editing style">
+      </div>
+      <aside class="action-bar">
+        <h2>Create highlights</h2>
+        <div class="export-controls">
+          <fieldset class="orientation"><legend>Video layout</legend>
+            <label><input type="radio" name="layout" value="16:9" checked><span><i class="wide-frame"></i>Landscape<small>16:9</small></span></label>
+            <label><input type="radio" name="layout" value="9:16"><span><i class="tall-frame"></i>Portrait<small>9:16</small></span></label>
+          </fieldset>
+          <label>Style<select id="vibeSelect" aria-label="Editing style">
             <option value="hype_montage">Hype Montage</option>
             <option value="chill_memory">Chill Memory</option>
             <option value="raw_clean">Raw Clean</option>
           </select>
-          <label>Length <select id="durationProfile" onchange="updateOutputLimit()">
+          </label><label>Length <select id="durationProfile" onchange="updateOutputLimit()">
             <option value="short">Short</option>
             <option value="long">Long</option>
           </select></label>
@@ -219,9 +279,11 @@ STUDIO_DASHBOARD_HTML = """<!DOCTYPE html>
           <label>Max Reels <input id="maxReels" type="number" min="1" value="3"
             required oninput="updateOutputLimit()" style="width: 4rem;"></label>
           <output id="maxTotalDuration" aria-live="polite">Up to 6 min 0 sec total</output>
-          <button class="btn" id="startSelectionBtn" onclick="startMontage()">Generate Montage from selection</button>
-          <button class="btn" id="startFolderBtn" onclick="startMontage(true)">Start folder queue</button>
+
+          <button class="btn" id="startFolderBtn" disabled onclick="startMontage(true)">Create folder highlights</button>
+          <small id="queueHint">Checking the recording folder…</small>
         </div>
+      </aside>
       </div>
     </section>
 
@@ -243,13 +305,13 @@ STUDIO_DASHBOARD_HTML = """<!DOCTYPE html>
               Your browser does not support the video element.
             </video>
             <div style="margin-top: 1rem; display: flex; gap: 0.75rem;">
-              <a id="downloadBtn" href="#" class="btn" target="_blank" style="display: none;">📥 Download Reel (.mp4)</a>
-              <button class="btn btn-secondary" onclick="copyChapters()">📋 Copy Chapters</button>
+              <a id="downloadBtn" href="#" class="btn" target="_blank" style="display: none;">Download Reel (.mp4)</a>
+              <button id="copyBtn" class="btn btn-secondary" disabled onclick="copyChapters()">Copy Chapters</button>
             </div>
           </div>
 
           <div>
-            <h3 style="font-size: 1rem; margin-bottom: 0.5rem; color: var(--accent);">AI / Zero-AI Metadata</h3>
+            <h3 style="font-size: 1rem; margin-bottom: 0.5rem; color: var(--accent);">Reel details</h3>
             <p id="metaTitle" style="font-weight: 600; margin-bottom: 0.5rem;">No Reel rendered yet.</p>
             <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">YouTube / TikTok Chapters:</p>
             <div id="metaChapters" class="pre-box">Chapters will appear here after rendering.</div>
@@ -335,6 +397,19 @@ STUDIO_DASHBOARD_HTML = """<!DOCTYPE html>
       return { pre: Number(pre.value), post: Number(post.value) };
     }
 
+    function openFolderSettings() {
+      switchTab('settings');
+      document.getElementById('settingWatchPath').focus();
+    }
+
+    let noticeTimer;
+    function showNotice(message) {
+      const notice = document.getElementById('notice');
+      notice.textContent = message;
+      clearTimeout(noticeTimer);
+      noticeTimer = setTimeout(() => { notice.textContent = ''; }, 7000);
+    }
+
     function switchTab(tabName) {
       document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
       document.querySelectorAll('section').forEach(sec => sec.style.display = 'none');
@@ -371,23 +446,25 @@ STUDIO_DASHBOARD_HTML = """<!DOCTYPE html>
       const path = document.getElementById('settingWatchPath').value;
       const guard = document.getElementById('settingGameGuard').checked;
       const enc = document.getElementById('settingEncoder').value;
-      await fetch('/api/settings', {
+      const res = await fetch('/api/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ watch_path: path, game_guard_enabled: guard, preferred_encoder: enc })
       });
-      alert('Settings saved!');
+      if (!res.ok) return showNotice('Could not save settings. Please try again.');
+      showNotice('Settings saved.');
       loadStatus();
       loadClips();
     }
 
+    let libraryHasClips = false;
     async function loadClips() {
-      let url = '/api/clips';
-      if (currentFilter === 'kills') url += '?has_kills=true';
-      if (currentFilter === 'verified') url += '?is_verified=true';
-
-      const res = await fetch(url);
-      allClips = await res.json();
+      const res = await fetch('/api/clips');
+      if (!res.ok) return showNotice('Could not refresh recordings. Try Refresh list.');
+      const clips = await res.json();
+      libraryHasClips = clips.length > 0;
+      allClips = clips.filter(clip => currentFilter === 'all' ||
+        (currentFilter === 'kills' ? clip.kill_count > 0 : clip.is_verified));
       document.getElementById('clipCountLabel').innerText = `${allClips.length} clips`;
       renderClipGrid();
     }
@@ -395,14 +472,16 @@ STUDIO_DASHBOARD_HTML = """<!DOCTYPE html>
     function renderClipGrid() {
       const grid = document.getElementById('clipGrid');
       if (allClips.length === 0) {
-        grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 3rem; color: var(--text-muted);">No clips found. Configure watch path in Settings, then click Rescan Folder.</div>';
+        grid.innerHTML = !libraryHasClips
+          ? `<div class="empty-library"><span class="slate" aria-hidden="true"></span><strong>No recordings yet</strong><p>Save a gameplay recording in your watched folder. It will appear here when ready.</p><button class="btn" onclick="openFolderSettings()">Set recording folder</button></div>`
+          : '<div class="empty-library"><strong>No matching clips</strong><p>Choose All Clips to see the full library.</p></div>';
         updateSelectionCount();
         return;
       }
       grid.innerHTML = allClips.map(c => {
         const isSelected = selectedIds.has(c.id);
         const killBadge = c.kill_count > 0
-          ? `<span class="badge-kill">🎯 ${c.kill_count} Kill${c.kill_count > 1 ? 's' : ''}</span>`
+          ? `<span class="badge-kill">${c.kill_count} Kill${c.kill_count > 1 ? 's' : ''}</span>`
           : '<span class="badge-zero">0 Kills</span>';
         return `
           <div class="clip-card ${isSelected ? 'selected' : ''}" data-id="${c.id}" onclick="toggleClipSelect('${c.id}')">
@@ -448,6 +527,15 @@ STUDIO_DASHBOARD_HTML = """<!DOCTYPE html>
 
     function updateSelectionCount() {
       const count = selectedIds.size;
+      const manual = document.getElementById('startSelectionBtn');
+      manual.disabled = jobRunning || count === 0;
+      manual.textContent = count ? `Create from ${count} selected` : 'Create from selected clips';
+      const empty = !libraryHasClips;
+      document.querySelector('.selection-tools').hidden = empty && count === 0;
+      document.getElementById('startFolderBtn').disabled = jobRunning || empty;
+      document.getElementById('queueHint').textContent = empty
+        ? 'Add a recording to your folder to start.'
+        : 'Uses ready recordings in your folder. No selection needed.';
       document.getElementById('selectionCounter').innerText = `${count} clip${count !== 1 ? 's' : ''} selected`;
     }
 
@@ -544,10 +632,11 @@ STUDIO_DASHBOARD_HTML = """<!DOCTYPE html>
       try {
         const res = await fetch('/api/clips/scan', { method: 'POST' });
         const data = await res.json();
-        alert(`Scanned: ${data.total_clips} clips in library!`);
+        if (!res.ok) throw new Error(data.detail || 'Could not scan folder');
+        showNotice(`Scanned: ${data.total_clips} clips in library!`);
         loadClips();
       } catch (e) {
-        alert('Scan error: ' + e);
+        showNotice('Scan error: ' + e);
       }
     }
 
@@ -568,7 +657,7 @@ STUDIO_DASHBOARD_HTML = """<!DOCTYPE html>
       if (jobRunning) return;
       const selected = folderQueue ? [] : Array.from(selectedIds);
       if (!folderQueue && selected.length === 0) {
-        alert('Please select at least one clip!');
+        showNotice('Please select at least one clip!');
         return;
       }
       const timing = readHighlightTiming();
@@ -579,7 +668,7 @@ STUDIO_DASHBOARD_HTML = """<!DOCTYPE html>
       if (folderQueue && !maximum.reportValidity()) return;
       const selections = Object.fromEntries(selected.filter(id => eventSelections.has(id)).map(id => [id, eventSelections.get(id)]));
       const vibe = document.getElementById('vibeSelect').value;
-      const fmt = document.getElementById('formatSelect').value;
+      const fmt = document.querySelector('input[name=layout]:checked').value;
 
       jobRunning = true;
       const buttons = [document.getElementById('startSelectionBtn'), document.getElementById('startFolderBtn')];
@@ -602,10 +691,10 @@ STUDIO_DASHBOARD_HTML = """<!DOCTYPE html>
         setDisplayedReels([]);
         await pollJob(job.id);
       } catch (error) {
-        alert(error.message);
+        showNotice(error.message);
       } finally {
         jobRunning = false;
-        buttons.forEach(button => button.disabled = false);
+        updateSelectionCount();
       }
     }
 
@@ -662,6 +751,7 @@ STUDIO_DASHBOARD_HTML = """<!DOCTYPE html>
         player.load();
         download.removeAttribute('href');
       }
+      document.getElementById('copyBtn').disabled = !reel?.chapters;
       download.style.display = reel ? 'inline-flex' : 'none';
       document.getElementById('metaTitle').textContent = reel?.ai_title || '';
       document.getElementById('metaChapters').textContent = reel?.chapters || '';
@@ -695,7 +785,7 @@ STUDIO_DASHBOARD_HTML = """<!DOCTYPE html>
         await refreshRatings(true);
         if (!jobRunning) document.getElementById('jobStatusBadge').textContent = 'Export history';
       } catch (error) {
-        alert(error.message);
+        showNotice(error.message);
       }
     }
 
@@ -718,7 +808,7 @@ STUDIO_DASHBOARD_HTML = """<!DOCTYPE html>
         reelRatings[reel.id] = result.rating;
         showRatingCounts(result.counts);
       } catch (error) {
-        alert(error.message);
+        showNotice(error.message);
       } finally {
         syncRating();
       }
@@ -727,11 +817,17 @@ STUDIO_DASHBOARD_HTML = """<!DOCTYPE html>
     function copyChapters() {
       const text = document.getElementById('metaChapters').innerText;
       navigator.clipboard.writeText(text);
-      alert('Chapters copied to clipboard!');
+      showNotice('Chapters copied to clipboard!');
     }
 
     loadStatus();
     loadClips();
+    setInterval(() => {
+      if (!document.hidden && !jobRunning && !libraryHasClips &&
+          document.getElementById('tab-feed').style.display !== 'none') {
+        loadClips().catch(() => {});
+      }
+    }, 5000);
   </script>
 </body>
 </html>
