@@ -7,7 +7,7 @@ from backend.app.detection.clip_analysis import HighlightTiming, analyze_clip, h
 from backend.app.detection.highlight_curator import CombatMoment, CuratedHighlight, HighlightCurator
 from backend.app.detection.killfeed_detector import KillfeedRow, match_killfeed_rows
 from backend.app.engine.ai_montage_director import CandidateCut
-from backend.app.engine.compositor import plan_cuts
+from backend.app.engine.compositor import continuation_start, plan_cuts
 from backend.app.models.entities import KillEvent, SourceClip
 
 
@@ -78,3 +78,9 @@ def test_short_montage_budget_keeps_the_strongest_kill_and_counts_visible_events
     assert cut.start <= 12.5 < cut.end
     assert cut.duration == 1.0
     assert cut.kills == 1
+
+def test_continuous_source_overlap_depends_on_duration():
+    assert continuation_start(120, 149) == 149
+    assert continuation_start(120, 170) == 165
+    assert continuation_start(120, 180) == 165
+    assert continuation_start(120, 420) == 405

@@ -11,7 +11,7 @@ from sqlmodel import Session, select
 from backend.app.core.config import settings
 from backend.app.detection.highlight_curator import CombatMoment, CuratedHighlight, HighlightCurator
 from backend.app.detection.killfeed_detector import CHAN_TEMPLATE_PATH, HEADSHOT_TEMPLATE_PATH
-from backend.app.models.entities import ClipAnalysis, KillEvent, SourceClip, get_utc_now
+from backend.app.models.entities import ClipAnalysis, KillEvent, RecordingFingerprint, SourceClip, get_utc_now
 
 
 class HighlightTiming(BaseModel):
@@ -58,6 +58,20 @@ def analysis_revision(path: Path) -> str:
         if asset.is_file():
             digest.update(asset.read_bytes())
     return digest.hexdigest()
+
+
+def recording_digest(session: Session, clip: SourceClip, revision: str) -> str:
+    cached = session.get(RecordingFingerprint, clip.id)
+    if cached and cached.revision == revision:
+        return cached.digest
+    path = Path(clip.file_path)
+    with path.open("rb") as stream:
+        digest = hashlib.file_digest(stream, "sha256").hexdigest()
+    if analysis_revision(path) != revision:
+        raise ValueError("Recording changed while identifying it. Retry after recording finishes.")
+    session.merge(RecordingFingerprint(clip_id=clip.id, revision=revision, digest=digest))
+    session.commit()
+    return digest
 
 
 def analyze_clip(session: Session, clip: SourceClip) -> tuple[list[CombatMoment], str]:

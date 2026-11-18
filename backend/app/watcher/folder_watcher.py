@@ -24,6 +24,10 @@ class ClipFileHandler(FileSystemEventHandler):
             return
         self.process_file(Path(event.src_path))
 
+    def on_moved(self, event):
+        if not event.is_directory:
+            self.process_file(Path(event.dest_path))
+
     def process_file(self, file_path: Path):
         ext = file_path.suffix.lower()
         if ext not in settings.watch_extensions:
@@ -35,9 +39,7 @@ class ClipFileHandler(FileSystemEventHandler):
 
         try:
             with Session(engine) as session:
-                clip, _ = register_clip(session, file_path)
-                if not is_game_process_running():
-                    analyze_clip(session, clip)
+                register_clip(session, file_path)
         except Exception:
             logger.exception("Error scanning clip %s", file_path)
 

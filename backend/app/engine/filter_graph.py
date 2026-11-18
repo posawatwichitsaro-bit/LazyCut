@@ -21,6 +21,9 @@ def build_9_16_filter_graph(
     with open(preset_path, "r", encoding="utf-8") as f:
         preset = json.load(f)
 
+    source = preset.get("source_resolution", {})
+    ref_width = source.get("width", 1920)
+    ref_height = source.get("height", 1080)
     regions = preset.get("regions", {})
     center = regions.get("gameplay_center", {"x": 420, "y": 0, "width": 1080, "height": 1080})
     killfeed = regions.get("killfeed", {"x": 1480, "y": 40, "width": 420, "height": 240})
@@ -37,13 +40,19 @@ def build_9_16_filter_graph(
             f"[{i}:v]setpts=PTS-STARTPTS,fps=60,scale=540:960:force_original_aspect_ratio=increase,"
             f"crop=540:960,boxblur=8:3,scale=1080:1920[bg{i}]"
         )
+        # Scale to the preset's coordinates once for both foreground crops.
+        filters.append(
+            f"[{i}:v]setpts=PTS-STARTPTS,fps=60,scale={ref_width}:{ref_height},setsar=1,"
+            f"split=2[gameInput{i}][feedInput{i}]"
+        )
+
         # Layer 2: Center gameplay crop 1080x1080
         cx, cy, cw, ch = center["x"], center["y"], center["width"], center["height"]
-        filters.append(f"[{i}:v]fps=60,crop={cw}:{ch}:{cx}:{cy}[center{i}]")
+        filters.append(f"[gameInput{i}]crop={cw}:{ch}:{cx}:{cy}[center{i}]")
 
         # Layer 3: Killfeed overlay crop 420x240
         kx, ky, kw, kh = killfeed["x"], killfeed["y"], killfeed["width"], killfeed["height"]
-        filters.append(f"[{i}:v]fps=60,crop={kw}:{kh}:{kx}:{ky}[kf{i}]")
+        filters.append(f"[feedInput{i}]crop={kw}:{kh}:{kx}:{ky}[kf{i}]")
 
         # Composite layers into 9:16 frame for clip i
         filters.append(f"[bg{i}][center{i}]overlay=0:420[comp1_{i}]")
