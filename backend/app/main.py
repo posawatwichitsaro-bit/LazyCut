@@ -157,7 +157,7 @@ STUDIO_DASHBOARD_HTML = """<!DOCTYPE html>
       </div>
       <div class="header-badges">
         <span id="gpuBadge" class="chip chip-amf">GPU: Detecting...</span>
-        <span id="gameGuardBadge" class="chip chip-online">Game Guard: Active</span>
+        <span id="gameGuardBadge" class="chip">Game Guard: …</span>
       </div>
     </header>
 
@@ -357,6 +357,9 @@ STUDIO_DASHBOARD_HTML = """<!DOCTYPE html>
         const data = await res.json();
         document.getElementById('gpuBadge').innerText = `GPU: ${data.resolved_encoder}`;
         document.getElementById('settingWatchPath').value = data.watch_path || '';
+        const guardBadge = document.getElementById('gameGuardBadge');
+        guardBadge.textContent = data.game_guard_enabled ? 'Game Guard: Enabled' : 'Game Guard: Off';
+        guardBadge.classList.toggle('chip-online', data.game_guard_enabled);
         document.getElementById('settingGameGuard').checked = data.game_guard_enabled;
         document.getElementById('settingEncoder').value = data.preferred_encoder || 'auto';
       } catch (e) {
