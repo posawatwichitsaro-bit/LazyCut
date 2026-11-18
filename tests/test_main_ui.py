@@ -16,5 +16,6 @@ def test_home_page_returns_modern_dashboard():
 
     # Verify key interactive controls
     assert "filterPills" in html or "filterClips" in html
-    assert "Generate Montage" in html
+    assert "Create folder highlights" in html
+    assert "Create from selected clips" in html
     assert "videoPlayer" in html or "video" in html
