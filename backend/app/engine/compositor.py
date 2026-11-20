@@ -11,7 +11,7 @@ from backend.app.core.safety import check_disk_safety
 from backend.app.engine.filter_graph import build_9_16_filter_graph, build_16_9_cinema_filter_graph
 from backend.app.detection.clip_analysis import EventSelection, HighlightTiming, analyze_clip, highlight_result, analysis_revision, recording_digest
 from backend.app.engine.ai_montage_director import CandidateCut, OptimizedCut
-from backend.app.models.entities import ExportedKill, ExportedSourceRange, MontageJob, ReelExport, SourceClip
+from backend.app.models.entities import ExportedKill, ExportedSourceRange, MontageJob, ReelExport, ReelRenderDetails, SourceClip
 from backend.app.watcher.process_guard import is_game_process_running
 
 def plan_cuts(candidates: list[CandidateCut], budget: float, *, defer_overflow: bool = False) -> list[OptimizedCut]:
@@ -74,6 +74,7 @@ class MontageCompositor:
         selections: dict[str, EventSelection] | None = None,
         folder_queue: bool = False,
         max_reels: int = 1,
+        resolution: int = 1080,
     ) -> ReelExport | None:
         """Render up to the requested number of Reels, committing each independently."""
         job = self.session.get(MontageJob, job_id)
@@ -87,7 +88,7 @@ class MontageCompositor:
         last_export = None
         for reel_index in range(max_reels if folder_queue else 1):
             export = self._export_next_reel(job, output_format, bgm_path, timing, selections,
-                                            folder_queue, reel_index, max_reels)
+                                            folder_queue, reel_index, max_reels, resolution)
             if export is None:
                 break
             last_export = export
@@ -107,6 +108,7 @@ class MontageCompositor:
         folder_queue: bool,
         reel_index: int,
         max_reels: int,
+        resolution: int,
     ) -> ReelExport | None:
         output_path = None
         chapters_path = None
@@ -297,6 +299,12 @@ class MontageCompositor:
             job.progress = (reel_index + 0.50) / max_reels
             self.session.commit()
 
+            long_side = 2 * round(resolution * 16 / 18)
+            width, height = (long_side, resolution) if output_format == "16:9" else (resolution, long_side)
+            if resolution != 1080:
+                filter_script += f";{final_v}scale={width}:{height}:flags=lanczos,setsar=1[render_size]"
+                final_v = "[render_size]"
+
             # 6. Execute FFmpeg Command
             opt_args = get_encoder_optimization_args(self.encoder)
             cmd = [
@@ -351,6 +359,14 @@ class MontageCompositor:
             )
             self.session.add(export)
             self.session.flush()
+            sources = [
+                {"name": clip_map[cut.clip_id].file_name, "path": clip_map[cut.clip_id].file_path,
+                 "start": cut.start, "end": cut.end}
+                for cut in optimized_edl
+            ]
+            self.session.add(ReelRenderDetails(
+                export_id=export.id, width=width, height=height, sources_json=json.dumps(sources),
+            ))
             for cut in optimized_edl:
                 digest = recording_ids[cut.clip_id]
                 used = used_by_recording[digest]

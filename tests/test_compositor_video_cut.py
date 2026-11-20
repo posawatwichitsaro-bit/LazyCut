@@ -217,7 +217,7 @@ def test_real_multi_clip_concatenation_and_cutting(tmp_path, db_session, monkeyp
         lambda self, path: CuratedHighlight(path, 3.0, [CombatMoment(1.0)], []),
     )
     compositor = MontageCompositor(db_session=db_session)
-    export = compositor.execute_job(job_id=job.id, output_format="9:16")
+    export = compositor.execute_job(job_id=job.id, output_format="9:16", resolution=720)
 
     output_path = Path(export.output_path)
     assert output_path.exists()
@@ -229,8 +229,12 @@ def test_real_multi_clip_concatenation_and_cutting(tmp_path, db_session, monkeyp
     h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     cap.release()
 
-    assert w == 1080
-    assert h == 1920
+    assert w == 720
+    assert h == 1280
+    from backend.app.models.entities import ReelRenderDetails
+    details = db_session.get(ReelRenderDetails, export.id)
+    assert (details.width, details.height) == (720, 1280)
+    assert json.loads(details.sources_json)[0]["path"] in {str(clip1_path), str(clip2_path)}
     assert dur <= 4.5, f"Multi-clip cut was not constrained to budget: {dur}s"
     assert "Clip 1" in export.chapters_txt
 

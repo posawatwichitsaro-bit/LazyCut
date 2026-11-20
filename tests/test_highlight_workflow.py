@@ -84,3 +84,27 @@ def test_continuous_source_overlap_depends_on_duration():
     assert continuation_start(120, 170) == 165
     assert continuation_start(120, 180) == 165
     assert continuation_start(120, 420) == 405
+
+
+
+def test_watched_rename_records_previous_and_new_paths(tmp_path, monkeypatch):
+    from watchdog.events import FileMovedEvent
+    from backend.app.models.entities import RecordingMove
+    from backend.app.watcher import folder_watcher
+
+    engine = create_engine("sqlite://")
+    SQLModel.metadata.create_all(engine)
+    monkeypatch.setattr(folder_watcher, "engine", engine)
+    handler = folder_watcher.ClipFileHandler()
+    before = tmp_path / "recording.mp4"
+    after = tmp_path / "renamed.mp4"
+    monkeypatch.setattr(handler, "_wait_for_file_complete", lambda path: True)
+
+    def register(session, path):
+        return SourceClip(file_path=str(path), file_name=path.name), True
+
+    monkeypatch.setattr(folder_watcher, "register_clip", register)
+    handler.on_moved(FileMovedEvent(str(before), str(after)))
+    with Session(engine) as session:
+        move, = session.exec(select(RecordingMove)).all()
+        assert (move.from_path, move.to_path) == (str(before), str(after))

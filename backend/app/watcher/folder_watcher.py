@@ -9,6 +9,7 @@ from sqlmodel import Session
 from backend.app.core.config import settings
 from backend.app.core.database import engine
 from backend.app.detection.clip_analysis import analyze_clip, register_clip
+from backend.app.models.entities import RecordingMove
 from backend.app.watcher.process_guard import is_game_process_running
 
 logger = logging.getLogger("lazycut.watcher")
@@ -26,9 +27,9 @@ class ClipFileHandler(FileSystemEventHandler):
 
     def on_moved(self, event):
         if not event.is_directory:
-            self.process_file(Path(event.dest_path))
+            self.process_file(Path(event.dest_path), moved_from=Path(event.src_path))
 
-    def process_file(self, file_path: Path):
+    def process_file(self, file_path: Path, moved_from: Path | None = None):
         ext = file_path.suffix.lower()
         if ext not in settings.watch_extensions:
             return
@@ -39,7 +40,10 @@ class ClipFileHandler(FileSystemEventHandler):
 
         try:
             with Session(engine) as session:
-                register_clip(session, file_path)
+                clip, _ = register_clip(session, file_path)
+                if moved_from and moved_from.suffix.lower() in settings.watch_extensions:
+                    session.add(RecordingMove(from_path=str(moved_from.resolve()), to_path=clip.file_path))
+                    session.commit()
         except Exception:
             logger.exception("Error scanning clip %s", file_path)
 
