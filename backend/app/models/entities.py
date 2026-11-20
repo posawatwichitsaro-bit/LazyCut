@@ -97,3 +97,22 @@ class ExportedSourceRange(SQLModel, table=True):
     export_id: str = Field(foreign_key="reel_exports.id")
     start_seconds: float
     end_seconds: float
+
+
+
+class ReelRenderDetails(SQLModel, table=True):
+    __tablename__ = "reel_render_details"
+
+    export_id: str = Field(foreign_key="reel_exports.id", primary_key=True)
+    width: int
+    height: int
+    sources_json: str
+
+
+class RecordingMove(SQLModel, table=True):
+    __tablename__ = "recording_moves"
+
+    id: int | None = Field(default=None, primary_key=True)
+    from_path: str
+    to_path: str
+    created_at: datetime = Field(default_factory=get_utc_now, index=True)

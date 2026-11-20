@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 
 from backend.app.core.config import settings
 from backend.app.core.database import get_session
-from backend.app.models.entities import MontageJob, ReelExport, SourceClip
+from backend.app.models.entities import MontageJob, ReelExport, ReelRenderDetails, RecordingMove, SourceClip
 from backend.app.engine.compositor import MontageCompositor
 from backend.app.detection.clip_analysis import EventSelection, HighlightTiming
 from backend.app.watcher.process_guard import is_game_process_running
@@ -26,6 +26,7 @@ class CreateJobRequest(BaseModel):
     vibe_id: str = "hype_montage"
     target_duration: int = Field(default=60, gt=0)
     output_format: str = "9:16"
+    resolution: Literal[480, 720, 1080] = 1080
     bgm_path: str | None = None
     timing: HighlightTiming = Field(default_factory=HighlightTiming)
     selections: dict[str, EventSelection] = Field(default_factory=dict)
@@ -52,6 +53,7 @@ def _run_montage_in_background(bind: Engine | Connection, job_id: str, payload: 
             compositor.execute_job(
                 job_id=job_id,
                 output_format=payload.output_format,
+                resolution=payload.resolution,
                 bgm_path=payload.bgm_path,
                 timing=payload.timing,
                 selections=payload.selections,
@@ -146,7 +148,7 @@ def get_job_export(job_id: str, session: Session = Depends(get_session)):
     export = session.exec(job_exports_query(job_id)).first()
     if not export:
         raise HTTPException(status_code=404, detail="Export not ready or not found.")
-    return serialize_export(export)
+    return serialize_export(export, session)
 
 
 def job_exports_query(job_id: str):
@@ -157,11 +159,16 @@ def job_exports_query(job_id: str):
 def list_job_exports(job_id: str, session: Session = Depends(get_session)):
     if session.get(MontageJob, job_id) is None:
         raise HTTPException(status_code=404, detail="Job not found.")
-    return [serialize_export(export) for export in session.exec(job_exports_query(job_id))]
+    return [serialize_export(export, session) for export in session.exec(job_exports_query(job_id))]
 
 
-def serialize_export(export: ReelExport):
+def serialize_export(export: ReelExport, session: Session):
+    details = session.get(ReelRenderDetails, export.id)
     return {
+        "created_at": export.created_at,
+        "style": export.job.vibe_id if export.job else None,
+        "resolution": [details.width, details.height] if details else None,
+        "sources": json.loads(details.sources_json) if details else [],
         "id": export.id,
         "output_path": export.output_path,
         "filename": Path(export.output_path.replace("\\", "/")).name,
@@ -198,7 +205,9 @@ def export_history(session: Session = Depends(get_session)):
     with ratings_lock:
         ratings = load_ratings()
     return {
-        "exports": [serialize_export(export) for export in exports],
+        "exports": [serialize_export(export, session) for export in exports],
+        "jobs": session.exec(select(MontageJob).order_by(MontageJob.created_at.desc()).limit(100)).all(),
+        "moves": session.exec(select(RecordingMove).order_by(RecordingMove.id.desc()).limit(100)).all(),
         "ratings": ratings,
         "counts": rating_counts(ratings),
     }

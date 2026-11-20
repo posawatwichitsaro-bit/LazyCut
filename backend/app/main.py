@@ -204,6 +204,13 @@ STUDIO_DASHBOARD_HTML = """<!DOCTYPE html>
     #queueHint {grid-column:1/-1;color:#dfd8e8;font-size:12px;text-align:center}
     .btn,.pill {min-height:36px}.btn:not(:disabled):active {transform:translateY(1px)}
     #notice:not(:empty) {position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:120;background:#282132;color:white;padding:12px 18px;border-radius:10px;box-shadow:0 5px 24px #22113633;max-width:90vw}
+    .export-note {grid-column:1/-1;color:#d8cee5;font-size:12px;line-height:1.5}
+    #tab-inspector {margin-top:22px;scroll-margin-top:16px}
+    #tab-inspector details {border-top:1px solid var(--card-border);margin-top:16px;padding-top:12px}
+    #tab-inspector summary {cursor:pointer;color:var(--accent);font-weight:600}
+    #tab-inspector details h3 {margin-top:12px;font-size:14px}
+    #tab-inspector details li, #reelSources {overflow-wrap:anywhere;white-space:pre-wrap;color:var(--text-muted);font-size:13px;line-height:1.6}
+    #tab-inspector details ul {padding-left:18px;max-height:200px;overflow:auto}
   </style>
 </head>
 <body>
@@ -266,12 +273,19 @@ STUDIO_DASHBOARD_HTML = """<!DOCTYPE html>
             <label><input type="radio" name="layout" value="16:9" checked><span><i class="wide-frame"></i>Landscape<small>16:9</small></span></label>
             <label><input type="radio" name="layout" value="9:16"><span><i class="tall-frame"></i>Portrait<small>9:16</small></span></label>
           </fieldset>
-          <label>Style<select id="vibeSelect" aria-label="Editing style">
-            <option value="hype_montage">Hype Montage</option>
-            <option value="chill_memory">Chill Memory</option>
-            <option value="raw_clean">Raw Clean</option>
+          <label>Style<select id="vibeSelect" aria-label="Editing style" onchange="updateStyleDescription()">
+            <option value="hype_montage" data-description="2 s ending fade with exponential audio fade. Music ducking setting if a track is present: 14 dB.">Hype Montage</option>
+            <option value="chill_memory" data-description="2.5 s ending fade with logarithmic audio fade. Music ducking setting if a track is present: 10 dB.">Chill Memory</option>
+            <option value="raw_clean" data-description="1 s ending fade with linear audio fade. Uses game audio by default.">Raw Clean</option>
           </select>
-          </label><label>Length <select id="durationProfile" onchange="updateOutputLimit()">
+          </label>
+          <p id="styleDescription" class="export-note"></p>
+          <label>Resolution<select id="renderResolution">
+            <option value="480">480p · Small</option>
+            <option value="720">720p · HD</option>
+            <option value="1080" selected>1080p · Full HD</option>
+          </select></label>
+          <label>Length <select id="durationProfile" onchange="updateOutputLimit()">
             <option value="short">Short</option>
             <option value="long">Long</option>
           </select></label>
@@ -288,7 +302,7 @@ STUDIO_DASHBOARD_HTML = """<!DOCTYPE html>
     </section>
 
     <!-- SCREEN 2: REEL INSPECTOR -->
-    <section id="tab-inspector" style="display: none;">
+    <section id="tab-inspector">
       <div class="card">
         <div class="card-header">
           <span class="card-title">Reel Inspector & Player</span>
@@ -321,8 +335,14 @@ STUDIO_DASHBOARD_HTML = """<!DOCTYPE html>
               <option>ดีมาก</option><option>ดี</option><option>แย่</option><option>แย่มาก</option>
             </select>
             <p id="ratingCounts" class="muted" aria-live="polite"></p>
+            <details id="sourceDetails"><summary>Source clips &amp; timecodes</summary><pre id="reelSources"></pre></details>
           </div>
         </div>
+        <details id="activityHistory">
+          <summary>Job &amp; file activity</summary>
+          <h3>Recent jobs</h3><ul id="jobHistory"></ul>
+          <h3>Recorded file moves</h3><ul id="moveHistory"></ul>
+        </details>
       </div>
     </section>
 
@@ -411,19 +431,20 @@ STUDIO_DASHBOARD_HTML = """<!DOCTYPE html>
     }
 
     function switchTab(tabName) {
-      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-      document.querySelectorAll('section').forEach(sec => sec.style.display = 'none');
-      
-      if (tabName === 'feed') {
-        document.querySelector('.tab-btn:nth-child(1)').classList.add('active');
-        document.getElementById('tab-feed').style.display = 'block';
-      } else if (tabName === 'inspector') {
-        document.querySelector('.tab-btn:nth-child(2)').classList.add('active');
-        document.getElementById('tab-inspector').style.display = 'block';
-      } else if (tabName === 'settings') {
-        document.querySelector('.tab-btn:nth-child(3)').classList.add('active');
-        document.getElementById('tab-settings').style.display = 'block';
-      }
+      const settings = tabName === 'settings';
+      document.getElementById('tab-feed').hidden = settings;
+      document.getElementById('tab-inspector').hidden = settings;
+      document.getElementById('tab-settings').style.display = settings ? 'block' : 'none';
+      const index = settings ? 2 : tabName === 'inspector' ? 1 : 0;
+      document.querySelectorAll('.tab-btn').forEach((button, i) => {
+        button.classList.toggle('active', i === index);
+      });
+      document.getElementById(`tab-${tabName}`).scrollIntoView({block: 'start'});
+    }
+
+    function updateStyleDescription() {
+      const style = document.getElementById('vibeSelect');
+      document.getElementById('styleDescription').textContent = style.selectedOptions[0].dataset.description;
     }
 
     async function loadStatus() {
@@ -681,7 +702,8 @@ STUDIO_DASHBOARD_HTML = """<!DOCTYPE html>
             folder_queue: folderQueue, clip_ids: selected, vibe_id: vibe, output_format: fmt,
             target_duration: duration.valueAsNumber, timing, selections,
             max_reels: folderQueue ? maximum.valueAsNumber : 1,
-            duration_profile: document.getElementById('durationProfile').value
+            duration_profile: document.getElementById('durationProfile').value,
+            resolution: Number(document.getElementById('renderResolution').value)
           })
         });
         const job = await res.json();
@@ -753,7 +775,15 @@ STUDIO_DASHBOARD_HTML = """<!DOCTYPE html>
       }
       document.getElementById('copyBtn').disabled = !reel?.chapters;
       download.style.display = reel ? 'inline-flex' : 'none';
-      document.getElementById('metaTitle').textContent = reel?.ai_title || '';
+      const sources = document.getElementById('reelSources');
+      document.getElementById('sourceDetails').hidden = !reel;
+      sources.textContent = reel?.sources?.length
+        ? reel.sources.map(source => `${source.name} · ${source.start.toFixed(2)}–${source.end.toFixed(2)} s\n${source.path}`).join('\\n\\n')
+        : 'Source timecodes are unavailable for this export.';
+      document.getElementById('metaTitle').textContent = reel
+        ? [reel.ai_title, reel.resolution?.join(' × '), reel.style?.replaceAll('_',' ')]
+            .filter(Boolean).join(' · ')
+        : '';
       document.getElementById('metaChapters').textContent = reel?.chapters || '';
       syncRating();
     }
@@ -775,6 +805,17 @@ STUDIO_DASHBOARD_HTML = """<!DOCTYPE html>
       if (!res.ok) throw new Error('Could not load export history.');
       const history = await res.json();
       reelRatings = history.ratings;
+      const dateLabel = value => new Date(/Z$|[+-]\\d\\d:\\d\\d$/.test(value) ? value : value + 'Z').toLocaleString();
+      for (const [id, lines] of [
+        ['jobHistory', history.jobs.map(job => `${dateLabel(job.created_at)} · ${job.status} · ${job.vibe_id.replaceAll('_', ' ')}`)],
+        ['moveHistory', history.moves.map(move => `${dateLabel(move.created_at)} · ${move.from_path} → ${move.to_path}`)]
+      ]) {
+        document.getElementById(id).replaceChildren(...(lines.length ? lines : ['No entries yet']).map(line => {
+          const item = document.createElement('li');
+          item.textContent = line;
+          return item;
+        }));
+      }
       showRatingCounts(history.counts);
       if (showHistory) setDisplayedReels(history.exports);
       else syncRating();
@@ -783,6 +824,7 @@ STUDIO_DASHBOARD_HTML = """<!DOCTYPE html>
     async function showExportHistory() {
       try {
         await refreshRatings(true);
+        document.getElementById('activityHistory').open = true;
         if (!jobRunning) document.getElementById('jobStatusBadge').textContent = 'Export history';
       } catch (error) {
         showNotice(error.message);
@@ -820,11 +862,13 @@ STUDIO_DASHBOARD_HTML = """<!DOCTYPE html>
       showNotice('Chapters copied to clipboard!');
     }
 
+    updateStyleDescription();
     loadStatus();
     loadClips();
+    refreshRatings(true).catch(() => showNotice('Could not load export history.'));
     setInterval(() => {
       if (!document.hidden && !jobRunning && !libraryHasClips &&
-          document.getElementById('tab-feed').style.display !== 'none') {
+          !document.getElementById('tab-feed').hidden) {
         loadClips().catch(() => {});
       }
     }, 5000);
